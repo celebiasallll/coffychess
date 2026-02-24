@@ -1,0 +1,4349 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Coffee Chess | Secure Blockchain Gaming</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800&family=Inter:wght@300;400;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- Chessboard.js CSS with custom overrides -->
+    <style>
+        /* Override chessboard.js default styles */
+        .square-55d63 {
+            position: relative;
+        }
+
+        /* Light squares - keep original */
+        .white-1e1d7 {
+            background-color: #f0d9b5;
+        }
+
+        /* Dark squares - keep original */
+        .black-3c85d {
+            background-color: #b58863;
+        }
+
+        /* Highlighted squares - remove chessboard.js default black overlay */
+        .highlight1-32417,
+        .highlight2-9c5d2 {
+            box-shadow: none !important;
+            background: transparent !important;
+        }
+
+        /* Prevent chessboard.js from adding black backgrounds */
+        .square-55d63.highlight1-32417,
+        .square-55d63.highlight2-9c5d2 {
+            background-color: inherit !important;
+        }
+
+        /* Lichess Style Premove Highlight Layer */
+        .highlight-premove {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(220, 50, 47, 0.4) !important;
+            /* Subtle red overlay */
+            box-shadow: inset 0 0 10px rgba(220, 50, 47, 0.6);
+            pointer-events: none;
+            /* Let drag events pass through */
+            z-index: 5;
+            /* Above square but below piece */
+        }
+
+        /* Lichess Style Last Move Highlight */
+        .highlight-last-move {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(155, 199, 0, 0.41) !important;
+            /* Lichess yellow-green */
+            pointer-events: none;
+            z-index: 4;
+        }
+
+        /* Check indicator for King */
+        .highlight-check {
+            background: radial-gradient(ellipse at center, red 0%, transparent 70%, transparent 100%) !important;
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script type="module">
+        import {
+            coffytokenAddress,
+            coffytokenAbi,
+            moduleAddress,
+            moduleAbi
+        } from './coffytokenvemodülabi.js?v=4';
+
+        window.coffytokenAddress = coffytokenAddress;
+        window.coffytokenAbi = coffytokenAbi;
+        window.moduleAddress = moduleAddress;
+        window.moduleAbi = moduleAbi;
+    </script>
+
+    <style>
+        :root {
+            --bg-dark: #050505;
+            --bg-panel: rgba(20, 20, 25, 0.7);
+            --primary-gold: #D4AF37;
+            --primary-gold-glow: rgba(212, 175, 55, 0.5);
+            --accent-silver: #C0C0C0;
+            --text-main: #FFFFFF;
+            --text-muted: #A0A0A0;
+            --success: #00ff9d;
+            --danger: #ff4757;
+            --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        /* Ping Indicator Dots */
+        .ping-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .ping-good {
+            background-color: #00ff9d;
+            box-shadow: 0 0 5px #00ff9d;
+        }
+
+        .ping-fair {
+            background-color: #f39c12;
+            box-shadow: 0 0 5px #f39c12;
+        }
+
+        .ping-poor {
+            background-color: #e74c3c;
+            box-shadow: 0 0 5px #e74c3c;
+        }
+
+        .ping-offline {
+            background-color: #7f8c8d;
+        }
+
+        .ping-pulse {
+            background-color: #ff4757;
+            box-shadow: 0 0 10px #ff4757;
+            animation: pingPulseAnim 1s ease-in-out infinite;
+        }
+
+        @keyframes pingPulseAnim {
+            0% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(1.5);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at top center, #1a1a2e 0%, #050505 100%);
+            color: var(--text-main);
+            height: 100vh;
+            height: 100dvh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            overscroll-behavior: none;
+        }
+
+        h1,
+        h2,
+        h3,
+        .brand-font {
+            font-family: 'Cinzel', serif;
+        }
+
+        .app-wrapper {
+            width: 100%;
+            height: 100%;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 10px;
+            padding-top: env(safe-area-inset-top, 10px);
+            padding-right: env(safe-area-inset-right, 10px);
+            padding-bottom: env(safe-area-inset-bottom, 10px);
+            padding-left: env(safe-area-inset-left, 10px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            margin-bottom: 10px;
+            height: 60px;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(45deg, #D4AF37, #F4E4C1, #D4AF37);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .tagline {
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+            color: var(--accent-silver);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr 280px;
+            gap: 15px;
+            flex: 1;
+            min-height: 0;
+            /* Crucial for nested scrolling */
+            overflow: hidden;
+        }
+
+        .glass-panel {
+            background: var(--bg-panel);
+            backdrop-filter: blur(12px);
+            border: var(--glass-border);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: var(--glass-shadow);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            height: 100%;
+            /* Hide scrollbar for cleaner look */
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-gold) rgba(255, 255, 255, 0.05);
+        }
+
+        .board-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            /* Prevent spillover */
+        }
+
+        #board {
+            /* Responsive board sizing logic */
+            width: min(70vh, 100%);
+            max-width: 100%;
+            aspect-ratio: 1;
+            border-radius: 4px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            border: 5px solid rgba(212, 175, 55, 0.3);
+            /* Ensure it doesn't overflow vertically */
+            max-height: 70vh;
+            /* CRITICAL: Prevent browser handling of touch actions to fix passive listener error */
+            touch-action: none !important;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        #board * {
+            touch-action: none !important;
+        }
+
+        /* Also apply to squares to be safe */
+        .square-55d63 {
+            touch-action: none !important;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-gold), #F4E4C1);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px var(--primary-gold-glow);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .text-gold {
+            color: var(--primary-gold);
+        }
+
+        .text-muted {
+            color: var(--text-muted);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-panel);
+            border: var(--glass-border);
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal-title {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: var(--primary-gold);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 1rem;
+        }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: rgba(20, 20, 25, 0.95);
+            border: var(--glass-border);
+            border-radius: 8px;
+            padding: 15px 20px;
+            color: white;
+            font-weight: 500;
+            box-shadow: var(--glass-shadow);
+            z-index: 2000;
+            opacity: 0;
+            transform: translateX(400px);
+            transition: all 0.3s;
+            min-width: 250px;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .toast-success {
+            border-left: 4px solid var(--success);
+        }
+
+        .toast-error {
+            border-left: 4px solid var(--danger);
+        }
+
+        .toast-warning {
+            border-left: 4px solid #ffa502;
+        }
+
+        .toast-info {
+            border-left: 4px solid #3498db;
+        }
+
+        /* Chess Board Highlights - Very Soft & Subtle */
+        .highlight-move {
+            background: rgba(255, 255, 255, 0.4) !important;
+            /* Visible dots */
+            box-shadow: none !important;
+        }
+
+        .highlight-move .click-move-indicator {
+            /* Indicator style remains, but background helps visibility */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            box-shadow: 0 0 6px rgba(255, 255, 255, 0.3);
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .highlight-check {
+            background: radial-gradient(circle, rgba(255, 80, 80, 0.2) 0%, transparent 60%) !important;
+            box-shadow: inset 0 0 12px rgba(255, 80, 80, 0.15) !important;
+            animation: pulse-check 2s infinite;
+        }
+
+        @keyframes pulse-check {
+
+            0%,
+            100% {
+                opacity: 0.7;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        .highlight-selected {
+            background: rgba(255, 255, 255, 0.08) !important;
+            box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.25) !important;
+        }
+
+        /* Click-to-move dot indicator */
+        .square-55d63 {
+            position: relative !important;
+        }
+
+        .click-move-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            box-shadow: 0 0 6px rgba(255, 255, 255, 0.3);
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .click-move-indicator.capture {
+            width: 85%;
+            height: 85%;
+            background: transparent;
+            border: 3px solid rgba(255, 255, 255, 0.35);
+            border-radius: 0;
+            box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.2);
+        }
+
+        /* Fix for chessboard.js black highlight squares - AGGRESSIVE OVERRIDE */
+        .square-55d63[style*="background-color: rgb(0, 0, 0)"],
+        .square-55d63[style*="background-color: black"],
+        .square-55d63[style*="background: black"],
+        .square-55d63[style*="background-color:#000"],
+        .square-55d63[style*="background:#000"] {
+            background-color: inherit !important;
+            background: inherit !important;
+        }
+
+        /* Force original square colors */
+        .white-1e1d7.highlight-move,
+        .white-1e1d7.highlight-selected,
+        .white-1e1d7.highlight-check {
+            background-color: #f0d9b5 !important;
+        }
+
+        .black-3c85d.highlight-move,
+        .black-3c85d.highlight-selected,
+        .black-3c85d.highlight-check {
+            background-color: #b58863 !important;
+        }
+
+        /* Loading Overlay */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+        }
+
+        #loading-overlay.hidden {
+            display: none !important;
+        }
+
+        .loader {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--primary-gold);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #loading-message {
+            margin-top: 20px;
+            font-size: 1.1rem;
+            color: var(--primary-gold);
+        }
+
+        /* Timer */
+        .timer {
+            font-size: 1.5rem;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            text-align: center;
+        }
+
+        .active-timer {
+            background: var(--primary-gold);
+            color: #000;
+        }
+
+        .timer-warning {
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* Chat Styles */
+        #chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        #chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .chat-message {
+            padding: 8px 12px;
+            border-radius: 8px;
+            max-width: 85%;
+            word-wrap: break-word;
+            animation: slideIn 0.2s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .chat-message.own {
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(244, 228, 193, 0.1));
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            align-self: flex-end;
+            text-align: right;
+        }
+
+        .chat-message.opponent {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            align-self: flex-start;
+        }
+
+        .chat-sender {
+            font-size: 0.7rem;
+            color: var(--primary-gold);
+            margin-bottom: 3px;
+            font-weight: 600;
+        }
+
+        .chat-text {
+            font-size: 0.85rem;
+            color: var(--text-main);
+        }
+
+        .chat-time {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 3px;
+        }
+
+        #chat-input-container {
+            display: flex;
+            gap: 8px;
+            padding: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--bg-panel);
+            flex-shrink: 0;
+        }
+
+        #chat-input {
+            flex: 1;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            color: var(--text-main);
+            font-size: 0.9rem;
+        }
+
+        #chat-input:focus {
+            outline: none;
+            border-color: var(--primary-gold);
+        }
+
+        #chat-send-btn {
+            padding: 10px 20px;
+            background: var(--primary-gold);
+            border: none;
+            border-radius: 6px;
+            color: #000;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #chat-send-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px var(--primary-gold-glow);
+        }
+
+        #chat-send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Moves Tab Styles */
+        .move-row {
+            display: grid;
+            grid-template-columns: 40px 1fr 1fr;
+            padding: 6px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            align-items: center;
+        }
+
+        .move-row:nth-child(even) {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .move-number {
+            color: var(--primary-gold);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .move-white,
+        .move-black {
+            color: var(--text-main);
+            font-family: monospace;
+            font-size: 0.95rem;
+        }
+
+        .move-black {
+            color: var(--text-muted);
+        }
+
+        /* Tab Styles */
+        .tab-btn {
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+        }
+
+        .active-tab {
+            color: var(--primary-gold) !important;
+            border-bottom-color: var(--primary-gold) !important;
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 250px 1fr;
+            }
+
+            /* Only hide right panel on tablet if desired, but for now we want it on desktop/tablet */
+            /* Actually, if we want it on mobile, we probably want it on tablet too. 
+               Let's remove the hide rule or scope it better. 
+               The user specifically asked for mobile. */
+            .right-panel {
+                /* On tablet it might overlap if we don't handle it, 
+                   but let's focus on mobile first in the next query. */
+                display: none;
+            }
+        }
+
+        /* Global rule: Hide mobile moves bar by default (Desktop) */
+        #mobile-moves-bar {
+            display: none;
+        }
+
+        /* 100% COMPACT MOBILE LAYOUT */
+        @media (max-width: 900px) {
+
+            body,
+            html {
+                margin: 0;
+                padding: 0;
+                height: 100%;
+                width: 100%;
+                overflow: hidden;
+                position: fixed;
+                background: radial-gradient(circle at top center, #1a1a2e 0%, #050505 100%);
+            }
+
+            .app-wrapper {
+                height: 100%;
+                width: 100%;
+                margin: 0;
+                padding: env(safe-area-inset-top, 5px) env(safe-area-inset-right, 5px) env(safe-area-inset-bottom, 5px) env(safe-area-inset-left, 5px);
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+
+            header {
+                flex-shrink: 0;
+                height: 50px;
+                padding: 0 10px;
+                display: flex !important;
+                /* Force show */
+            }
+
+            .main-grid {
+                display: flex;
+                flex-direction: column;
+                flex: 1;
+                width: 100%;
+                margin: 0;
+                gap: 10px;
+                padding: 0;
+            }
+
+            /* 3. OPTIMIZED TOP CONTROLS (Compact Horizontal Scroll) */
+            .left-panel {
+                display: flex !important;
+                order: 1;
+                flex-direction: row !important;
+                /* Force horizontal */
+                align-items: center;
+                gap: 8px;
+                height: 50px !important;
+                min-height: 50px !important;
+                padding: 0 10px;
+                background: transparent;
+                border: none;
+                flex-shrink: 0;
+                overflow-x: auto;
+                /* Scrollable buttons */
+                overflow-y: hidden;
+                white-space: nowrap;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            }
+
+            /* Make buttons compact */
+            .left-panel>.btn {
+                width: auto !important;
+                padding: 6px 12px;
+                font-size: 0.8rem;
+                margin: 0 !important;
+                flex-shrink: 0;
+            }
+
+            /* HIDE Top Panel Clutter (Status/Info boxes) - We moved this info to bottom bar */
+            .left-panel h3,
+            .left-panel .form-group,
+            .left-panel>div:not(.btn) {
+                display: none !important;
+            }
+
+            /* 4. BOARD AREA */
+            .board-wrapper {
+                order: 2;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                background: transparent;
+                margin-top: 5px;
+                flex-shrink: 0;
+                /* Don't shrink the board! */
+            }
+
+            #board {
+                width: 100% !important;
+                max-width: min(95vw, 55vh) !important;
+                height: auto !important;
+                aspect-ratio: 1 / 1;
+                margin: 0 auto;
+            }
+
+            .timer {
+                width: 95vw;
+                margin: 2px auto;
+                font-size: 0.9rem;
+                display: flex;
+                justify-content: space-between;
+            }
+
+            /* 5. BOTTOM PANEL (Scrollable) */
+            .right-panel {
+                display: flex !important;
+                order: 3;
+                flex-direction: column;
+                width: 96%;
+                margin: 0 auto;
+                flex: 1;
+                min-height: 150px;
+                background: var(--bg-panel);
+                border-radius: 12px 12px 0 0;
+                padding: 10px;
+            }
+
+            /* 6. MOBILE MOVES BAR (New) */
+            #mobile-moves-bar {
+                display: none;
+                /* Desktop hidden */
+            }
+
+            @media (max-width: 900px) {
+                #mobile-moves-bar {
+                    display: flex;
+                    width: 95vw;
+                    height: 40px;
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 6px;
+                    align-items: center;
+                    overflow-x: auto;
+                    white-space: nowrap;
+                    padding: 0 10px;
+                    margin-bottom: 5px;
+                    font-size: 0.9rem;
+                    color: #bbb;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                }
+
+                #mobile-moves-bar span {
+                    margin-right: 8px;
+                }
+
+                #mobile-moves-bar .move-num {
+                    color: var(--primary-gold);
+                    margin-right: 2px;
+                }
+
+                #mobile-moves-bar .move-w {
+                    color: #fff;
+                }
+
+                #mobile-moves-bar .move-b {
+                    color: #aaa;
+                }
+
+                /* HIDE TABS ON MOBILE -> Force Chat */
+                .right-panel .tab-navigation,
+                .right-panel #moves-tab,
+                .right-panel #tab-moves,
+                .right-panel #tab-chat {
+                    display: none !important;
+                }
+
+                .right-panel #chat-tab {
+                    display: flex !important;
+                    height: 100%;
+                    overflow: hidden;
+                    flex-direction: column;
+                }
+
+                #chat-container {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                }
+
+                #chat-messages {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding-bottom: 10px;
+                }
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-wrapper">
+        <header>
+            <div class="logo-container">
+                <div class="logo">COFFEE CHESS</div>
+                <div class="tagline">SECURE BLOCKCHAIN GAMING</div>
+            </div>
+            <div>
+                <button id="wallet-btn" class="btn btn-primary">
+                    Connect Wallet
+                </button>
+            </div>
+        </header>
+
+        <div class="main-grid">
+            <!-- Left Panel -->
+            <div class="glass-panel left-panel">
+                <h3 style="margin-bottom: 15px;">Game Controls</h3>
+
+                <button class="btn btn-primary" style="width: 100%; margin-bottom: 10px;"
+                    onclick="openModal('create-modal')">
+                    Create Game
+                </button>
+
+                <button class="btn btn-secondary" style="width: 100%; margin-bottom: 10px;"
+                    onclick="openModal('join-modal')">
+                    Join Game
+                </button>
+
+                <button class="btn btn-secondary" style="width: 100%; margin-bottom: 10px;"
+                    onclick="openModal('ai-modal')">
+                    🤖 Play vs AI
+                </button>
+
+                <button id="resign-btn" class="btn btn-danger" style="width: 100%; margin-bottom: 10px;"
+                    onclick="resign()" disabled>
+                    Resign
+                </button>
+
+                <button id="offer-draw-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px;"
+                    onclick="offerDraw()" disabled>
+                    🤝 Offer Draw
+                </button>
+
+                <button class="btn btn-secondary" style="width: 100%;" onclick="flipBoard()">
+                    Flip Board
+                </button>
+
+                <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 5px;">Game Status</div>
+                    <div id="status-text" style="font-weight: bold;">Ready</div>
+                </div>
+
+                <div style="margin-top: 10px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 5px;">Game Info</div>
+                    <div id="game-info-text" style="font-size: 0.85rem;">No active game</div>
+                </div>
+
+                <button id="claim-btn" class="btn btn-primary hidden" style="width: 100%; margin-top: 15px;"
+                    onclick="claimReward()">
+                    Claim Winnings 🎉
+                </button>
+            </div>
+
+            <!-- Center - Board -->
+            <div class="glass-panel board-wrapper">
+
+                <!-- NEW: Mobile Moves Bar ABOVE Board -->
+                <div id="mobile-moves-bar">
+                    <span style="opacity: 0.5; font-style: italic;">Game started...</span>
+                </div>
+
+                <div id="timer-top-container" style="width: 100%; max-width: 800px; margin-bottom: 10px;">
+                    <div class="timer" id="timer-black">5:00</div>
+                </div>
+
+                <div id="board"></div>
+
+                <div id="timer-bottom-container" style="width: 100%; max-width: 800px; margin-top: 10px;">
+                    <div class="timer" id="timer-white">5:00</div>
+                </div>
+            </div>
+
+            <!-- Right Panel -->
+            <div class="glass-panel right-panel">
+                <!-- Mobile Only: Minimal Game Status Info -->
+                <div class="mobile-info-bar"
+                    style="display: none; flex-direction: column; gap: 8px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem;">
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <div>
+                            <span style="color: var(--text-muted);">Status: </span>
+                            <span id="mobile-status-text" class="text-gold" style="font-weight: bold;">Ready</span>
+                        </div>
+                        <div id="mobile-turn-indicator" style="display: flex; align-items: center; gap: 5px;">
+                            <div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div>
+                            <span>White's Turn</span>
+                        </div>
+                    </div>
+
+                    <!-- Extra Desktop Info: Game ID / Stake -->
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 0.8rem; color: var(--text-muted);">
+                        <span id="mobile-game-id">Game: <span class="text-gold">--</span></span>
+                        <span id="mobile-stake-info">Stake: <span class="text-gold">--</span></span>
+                    </div>
+                </div>
+
+                <!-- Tab Navigation -->
+                <div
+                    style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <button id="tab-moves" class="tab-btn active-tab" onclick="switchTab('moves')"
+                        style="flex: 1; padding: 8px; background: none; border: none; color: var(--text-main); cursor: pointer; border-bottom: 2px solid var(--primary-gold);">
+                        Moves
+                    </button>
+                    <button id="tab-chat" class="tab-btn" onclick="switchTab('chat')"
+                        style="flex: 1; padding: 8px; background: none; border: none; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent;">
+                        Chat <span id="chat-badge" class="hidden"
+                            style="background: var(--danger); border-radius: 10px; padding: 2px 6px; font-size: 0.7rem; margin-left: 5px;">!</span>
+                    </button>
+                </div>
+
+                <!-- Moves Tab -->
+                <div id="moves-tab" class="tab-content" style="display: flex; flex-direction: column; flex: 1;">
+                    <div id="move-list" style="flex: 1; overflow-y: auto; font-size: 0.9rem; margin-bottom: 20px;">
+                    </div>
+
+                    <div>
+                        <h4 style="margin-bottom: 10px; font-size: 0.9rem;">Captured Pieces</h4>
+                        <div style="margin-bottom: 10px;">
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">White:</div>
+                            <div id="captured-white"></div>
+                            <div id="material-white" class="text-gold" style="display: none;"></div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Black:</div>
+                            <div id="captured-black"></div>
+                            <div id="material-black" class="text-gold" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Tab -->
+                <div id="chat-tab" class="tab-content hidden" style="display: none; flex-direction: column; flex: 1;">
+                    <div id="chat-container">
+                        <div id="chat-messages"></div>
+                        <div id="chat-input-container">
+                            <input type="text" id="chat-input" placeholder="Type a message..." maxlength="200" disabled>
+                            <button id="chat-send-btn" onclick="sendChatMessage()" disabled>Send</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="create-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="modal-title">Create Game</h2>
+            <div class="form-group">
+                <label>Stake Amount (COFFY)</label>
+                <input type="number" id="stake-input" placeholder="10" step="0.01" min="0">
+            </div>
+
+            <div class="form-group">
+                <label>Time Control</label>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-secondary time-btn active" onclick="selectTime(this, 5)"
+                        style="flex: 1; border-color: var(--primary-gold); background: rgba(212, 175, 55, 0.1);">5
+                        min</button>
+                    <button class="btn btn-secondary time-btn" onclick="selectTime(this, 10)" style="flex: 1;">10
+                        min</button>
+                    <button class="btn btn-secondary time-btn" onclick="selectTime(this, 30)" style="flex: 1;">30
+                        min</button>
+                </div>
+                <input type="hidden" id="time-input" value="5">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-primary" style="flex: 1;" onclick="startPvpGameFlow()">Create</button>
+                <button class="btn btn-secondary" style="flex: 1;" onclick="closeModal('create-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="join-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="modal-title">Join Game</h2>
+            <div class="form-group">
+                <label>Game ID or Room ID</label>
+                <input type="text" id="join-game-id" placeholder="Enter ID (e.g., 82 or ABC123)">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-primary" style="flex: 1;" onclick="joinPvpGameFlow()">Join</button>
+                <button class="btn btn-secondary" style="flex: 1;" onclick="closeModal('join-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="ai-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="modal-title">🤖 Play vs AI</h2>
+            <p style="margin-bottom: 20px; color: var(--text-muted); font-size: 0.9rem;">
+                Choose difficulty level for your AI opponent
+            </p>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label>Time Control</label>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-secondary ai-time-btn active" onclick="selectAiTime(this, 5)"
+                        style="flex: 1; border-color: var(--primary-gold); background: rgba(212, 175, 55, 0.1);">5
+                        min</button>
+                    <button class="btn btn-secondary ai-time-btn" onclick="selectAiTime(this, 10)" style="flex: 1;">10
+                        min</button>
+                    <button class="btn btn-secondary ai-time-btn" onclick="selectAiTime(this, 30)" style="flex: 1;">30
+                        min</button>
+                </div>
+                <input type="hidden" id="ai-time-input" value="5">
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button class="btn btn-secondary"
+                    style="background: rgba(0, 255, 157, 0.1); border-color: var(--success);"
+                    onclick="closeModal('ai-modal'); newLocalGame('easy')">
+                    <div style="font-size: 1.1rem; margin-bottom: 5px;">😊 Easy</div>
+                    <div style="font-size: 0.8rem; opacity: 0.7;">Random moves, beginner friendly</div>
+                </button>
+
+                <button class="btn btn-secondary" style="background: rgba(255, 165, 0, 0.1); border-color: #ffa502;"
+                    onclick="closeModal('ai-modal'); newLocalGame('medium')">
+                    <div style="font-size: 1.1rem; margin-bottom: 5px;">😐 Medium</div>
+                    <div style="font-size: 0.8rem; opacity: 0.7;">Smart moves, prefers captures</div>
+                </button>
+
+                <button class="btn btn-secondary"
+                    style="background: rgba(255, 71, 87, 0.1); border-color: var(--danger);"
+                    onclick="closeModal('ai-modal'); newLocalGame('hard')">
+                    <div style="font-size: 1.1rem; margin-bottom: 5px;">😈 Hard</div>
+                    <div style="font-size: 0.8rem; opacity: 0.7;">Strategic AI, challenging opponent</div>
+                </button>
+            </div>
+
+            <button class="btn btn-secondary" style="width: 100%; margin-top: 15px;"
+                onclick="closeModal('ai-modal')">Cancel</button>
+        </div>
+    </div>
+
+    <div id="winner-modal" class="modal-overlay">
+        <div class="modal-content" style="text-align: center;">
+            <h2 id="winner-title" class="modal-title">Game Over</h2>
+            <p id="winner-message" style="font-size: 1.1rem; margin-bottom: 20px;"></p>
+            <button id="winner-claim-btn" class="btn btn-primary" onclick="claimReward()" style="margin-bottom: 10px;">
+                Claim Winnings 🎉
+            </button>
+            <button class="btn btn-secondary" onclick="closeModal('winner-modal')">Close</button>
+        </div>
+    </div>
+
+    <!-- Promotion Modal -->
+    <div id="promotion-modal" class="modal-overlay">
+        <div class="modal-content" style="text-align: center; max-width: 300px;">
+            <h2 class="modal-title">Promote Pawn</h2>
+            <p style="margin-bottom: 15px; color: var(--text-muted); font-size: 0.9rem;">
+                Choose a piece to promote your pawn to:
+            </p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                <button class="btn btn-secondary" onclick="choosePromotion('q')"
+                    style="font-size: 2rem; padding: 10px;">♕</button>
+                <button class="btn btn-secondary" onclick="choosePromotion('r')"
+                    style="font-size: 2rem; padding: 10px;">♖</button>
+                <button class="btn btn-secondary" onclick="choosePromotion('b')"
+                    style="font-size: 2rem; padding: 10px;">♗</button>
+                <button class="btn btn-secondary" onclick="choosePromotion('n')"
+                    style="font-size: 2rem; padding: 10px;">♘</button>
+            </div>
+            <button class="btn btn-secondary" style="width: 100%;" onclick="cancelPromotion()">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Draw Offer Modal -->
+    <div id="draw-offer-modal" class="modal-overlay">
+        <div class="modal-content" style="text-align: center;">
+            <h2 class="modal-title"><span style="font-size: 2rem;">🤝</span><br>Draw Offer</h2>
+            <p style="font-size: 1.1rem; margin-bottom: 20px; color: var(--text-muted);">
+                Your opponent has offered a draw. Do you accept?
+            </p>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-primary" style="flex: 1;" onclick="acceptDrawOffer()">
+                    Accept
+                </button>
+                <button class="btn btn-danger" style="flex: 1;" onclick="declineDrawOffer()">
+                    Decline
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="hidden">
+        <div class="loader"></div>
+        <div id="loading-message">Loading...</div>
+    </div>
+
+    <script type="module">
+        import { coffytokenAddress, coffytokenAbi, moduleAddress, moduleAbi } from './coffytokenvemodülabi.js';
+
+        // Expose to window for debugging/legacy access if needed
+        window.coffytokenAddress = coffytokenAddress;
+        window.moduleAddress = moduleAddress;
+
+        // Toast Queue System
+        class ToastQueue {
+            constructor() {
+                this.queue = [];
+                this.isShowing = false;
+            }
+
+            add(message, type = 'info', duration = 3000) {
+                // Priority: error > warning > success > info
+                const priority = type === 'error' ? 3 : type === 'warning' ? 2 : type === 'success' ? 1 : 0;
+                this.queue.push({ message, type, duration, priority });
+                this.queue.sort((a, b) => b.priority - a.priority); // High priority first
+                this.process();
+            }
+
+            process() {
+                if (this.isShowing || this.queue.length === 0) return;
+
+                const toast = this.queue.shift();
+                this.show(toast);
+            }
+
+            show({ message, type, duration }) {
+                this.isShowing = true;
+
+                // Create toast element manually to ensure clean state
+                const toastEl = document.createElement('div');
+                toastEl.className = `toast toast-${type} show`;
+                toastEl.innerText = message;
+                document.body.appendChild(toastEl);
+
+                // Play sound for errors
+                if (type === 'error') {
+                    // playErrorSound(); // Implement if needed
+                }
+
+                setTimeout(() => {
+                    toastEl.classList.remove('show');
+                    setTimeout(() => {
+                        toastEl.remove();
+                        this.isShowing = false;
+                        this.process();
+                    }, 300);
+                }, duration);
+            }
+        }
+
+        const toaster = new ToastQueue();
+        // Override showToast to use queue
+        window.showToast = (msg, type) => toaster.add(msg, type);
+
+        // ============ IMPROVED FRONTEND LOGIC ============
+        let socket, board, chess;
+        let provider, signer, userAddress;
+        let coffyToken, moduleContract;
+        let isMultiplayer = false, roomId = null, playerNumber = null, myColor = 'white';
+        let timerWhite = 300, timerBlack = 300, timerInterval = null;
+        let captured = { w: [], b: [] };
+        let currentGameId = null;
+        let gameStarted = false;
+        let reconnecting = false;
+        let lastGameSignature = null; // Store server signature for game completion
+
+        // ============ DEVELOPMENT MODE ============
+        // Set to true for local testing without blockchain
+        const DEV_MODE = false;
+        // ==========================================
+
+        // AI Variables
+        let aiEnabled = false;
+        let aiDifficulty = 'medium'; // easy, medium, hard
+        let aiThinking = false;
+
+        // Click-to-move variables
+        let selectedSquare = null;
+        let selectedPieceMoves = [];
+        let ignoreNextClick = false;
+
+        // Pending promotion variables
+        window.pendingPromotion = null;
+
+        const MaxUint256 = ethers.constants.MaxUint256;
+
+        // Token approval state - track if user has already approved tokens (persisted in sessionStorage)
+        let hasApprovedTokens = sessionStorage.getItem('coffyApproved') === 'true';
+
+        // ============ INIT ============
+        $(document).ready(() => {
+            chess = new Chess();
+
+            // Configure Chessboard
+            const cfg = {
+                draggable: true,
+                position: 'start',
+                onDragStart: onDragStart,
+                onDrop: onDrop,
+                onSnapEnd: onSnapEnd,
+                onMouseoverSquare: onMouseoverSquare,
+                onMouseoutSquare: onMouseoutSquare,
+                // Use function to handle casing (Chess.com uses lowercase)
+                pieceTheme: function (piece) {
+                    return 'https://images.chesscomfiles.com/chess-themes/pieces/neo/150/' + piece.toLowerCase() + '.png';
+                }
+            };
+            board = Chessboard('board', cfg);
+
+            $(window).resize(board.resize);
+
+            // ============ ROBUST HYBRID INPUT SYSTEM ============
+            // We use event delegation on the board container to handle both
+            // Clicks (PC) and Taps (Mobile) reliably, even when board is redrawn.
+
+            function attachGlobalBoardListeners() {
+                const boardEl = document.getElementById('board');
+                if (!boardEl) return;
+
+                // --- PC MOUSE HANDLERS (Hybrid) ---
+                // useCapture: true is CRITICAL here because chessboard.js often 
+                // stops propagation on mousedown/touchstart at the piece level.
+                const options = { capture: true, passive: false };
+
+                boardEl.removeEventListener('mousedown', handleBoardMouse, true); // remove capture listener
+                boardEl.removeEventListener('mousemove', handleBoardMouse, true);
+                boardEl.removeEventListener('mouseup', handleBoardMouse, true);
+
+                boardEl.addEventListener('mousedown', handleBoardMouse, options);
+                boardEl.addEventListener('mousemove', handleBoardMouse, options);
+                boardEl.addEventListener('mouseup', handleBoardMouse, options);
+
+                // --- MOBILE TOUCH HANDLERS ---
+                // specialized logic to distinguish Tap vs Drag
+                boardEl.removeEventListener('touchstart', handleBoardTouch, true);
+                boardEl.removeEventListener('touchmove', handleBoardTouch, true);
+                boardEl.removeEventListener('touchend', handleBoardTouch, true);
+
+                boardEl.addEventListener('touchstart', handleBoardTouch, options);
+                boardEl.addEventListener('touchmove', handleBoardTouch, options);
+                boardEl.addEventListener('touchend', handleBoardTouch, options);
+            }
+
+
+
+            // Helper: Calculate square from X/Y coordinates
+            function getSquareFromCoords(clientX, clientY) {
+                const boardEl = document.getElementById('board');
+                const rect = boardEl.getBoundingClientRect();
+
+                // Check if click is inside board
+                if (clientX < rect.left || clientX > rect.right ||
+                    clientY < rect.top || clientY > rect.bottom) {
+                    return null;
+                }
+
+                const squareSize = rect.width / 8;
+                const x = Math.floor((clientX - rect.left) / squareSize);
+                const y = Math.floor((clientY - rect.top) / squareSize);
+
+                // "orientation" method might not allow simple read, so we track myColor or use config
+                // Default chessboard.js orientation is 'white'
+                const orientation = board.orientation();
+
+                const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+                const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
+
+                let file, rank;
+
+                if (orientation === 'white') {
+                    file = files[x];
+                    rank = ranks[y];
+                } else {
+                    file = files[7 - x];
+                    rank = ranks[7 - y];
+                }
+
+                return file + rank;
+            }
+
+            // --- PC Logic (Mirrored from Mobile) ---
+            let mouseStartTime = 0;
+            let mouseStartX = 0;
+            let mouseStartY = 0;
+            let isMouseDrag = false;
+
+            function handleBoardMouse(e) {
+                // Ignore if not left click
+                if (e.type === 'mousedown' && e.button !== 0) return;
+
+                if (e.type === 'mousedown') {
+                    mouseStartTime = Date.now();
+                    mouseStartX = e.clientX;
+                    mouseStartY = e.clientY;
+                    isMouseDrag = false;
+                }
+                else if (e.type === 'mousemove') {
+                    // Only track if we have a start time (button held)
+                    if (mouseStartTime > 0) {
+                        const diffX = Math.abs(e.clientX - mouseStartX);
+                        const diffY = Math.abs(e.clientY - mouseStartY);
+                        if (diffX > 5 || diffY > 5) {
+                            isMouseDrag = true;
+                        }
+                    }
+                }
+                else if (e.type === 'mouseup') {
+                    if (mouseStartTime === 0) return; // ignore if mousedown wasn't tracked
+
+                    if (ignoreNextClick) {
+                        ignoreNextClick = false;
+                        mouseStartTime = 0;
+                        return;
+                    }
+
+                    const duration = Date.now() - mouseStartTime;
+
+                    // Clean up
+                    mouseStartTime = 0;
+
+                    // If it was a quick click and NOT a drag -> Treat as Click
+                    if (!isMouseDrag && duration < 400) {
+                        const square = getSquareFromCoords(e.clientX, e.clientY);
+                        if (square) {
+                            onSquareClick(square);
+                        }
+                    }
+                    isMouseDrag = false;
+                }
+                else if (e.type === 'mouseleave') {
+                    // Cancel if mouse leaves board
+                    mouseStartTime = 0;
+                    isMouseDrag = false;
+                }
+            }
+
+            // --- Mobile Logic ---
+            let touchStartTime = 0;
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let isDragGesture = false;
+
+            function handleBoardTouch(e) {
+                const touch = e.changedTouches[0];
+
+                if (e.type === 'touchstart') {
+                    touchStartTime = Date.now();
+                    touchStartX = touch.clientX;
+                    touchStartY = touch.clientY;
+                    isDragGesture = false;
+                }
+                else if (e.type === 'touchmove') {
+                    // Proactively prevent default to shut down chessboard.js intervention warnings on drag
+                    if (e.cancelable) {
+                        e.preventDefault();
+                    }
+                    const diffX = Math.abs(touch.clientX - touchStartX);
+                    const diffY = Math.abs(touch.clientY - touchStartY);
+                    // Threshold for "Drag" vs "Tap"
+                    if (diffX > 10 || diffY > 10) {
+                        isDragGesture = true;
+                    }
+                }
+                else if (e.type === 'touchend') {
+                    if (ignoreNextClick) {
+                        ignoreNextClick = false;
+                        return;
+                    }
+
+                    const touchDuration = Date.now() - touchStartTime;
+
+                    // If it was a quick tap and NOT a drag -> Treat as Click
+                    if (!isDragGesture && touchDuration < 400) {
+                        // Prevent phantom mouse clicks if needed
+                        if (e.cancelable && e.target.tagName !== 'INPUT') {
+                            e.preventDefault();
+                        }
+
+                        const square = getSquareFromCoords(touch.clientX, touch.clientY);
+                        if (square) {
+                            onSquareClick(square);
+                        }
+                    }
+                }
+            }
+
+            // Initialize Listeners
+            attachGlobalBoardListeners();
+            // Re-attach on resize just in case
+            $(window).resize(attachGlobalBoardListeners);
+
+
+            initSocket();
+            updateUI();
+
+            // Attach wallet button handler
+            $('#wallet-btn').on('click', function () {
+                console.log('Connect Wallet button clicked');
+                connectWallet();
+            });
+        });
+
+        // ============ AUDIO PRELOADING ============
+        const sounds = {};
+        let audioEnabled = false;
+
+        function initAudio() {
+            // Lichess-style audio assets
+            sounds.move = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/move-self.mp3');
+            sounds.capture = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/capture.mp3');
+            sounds.check = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/move-check.mp3');
+            sounds.gameStart = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/game-start.mp3');
+            sounds.gameEnd = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/game-end.mp3');
+            sounds.notify = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_MP3_/default/notify.mp3');
+
+            // Preload
+            Object.values(sounds).forEach(audio => {
+                audio.volume = 0.5;
+                audio.load();
+            });
+            audioEnabled = true;
+        }
+
+        // ============ WALLET CONNECTION ============
+        async function checkExistingConnection() {
+            // Only check if we have a saved preference to avoid spamming
+            const savedAddress = localStorage.getItem('userAddress');
+            if (savedAddress && typeof window.ethereum !== 'undefined') {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    if (accounts.length > 0 && accounts[0].toLowerCase() === savedAddress.toLowerCase()) {
+                        // Silent reconnect
+                        userAddress = accounts[0];
+                        signer = provider.getSigner();
+
+                        // Update UI without full connect flow (avoids popup)
+                        connectWallet(true);
+                    }
+                } catch (error) {
+                    console.log('Silent reconnect failed:', error);
+                }
+            }
+        }
+
+        // Loading states
+        let isConnecting = false;
+
+        let isSwitchingNetwork = false;
+
+        async function connectWallet(silent = false) {
+            if (isConnecting) return;
+
+            if (typeof window.ethereum === 'undefined') {
+                if (!silent) showToast('Please install MetaMask or another Web3 wallet!', 'error');
+                return;
+            }
+
+            isConnecting = true;
+            if (!silent) {
+                $('#wallet-btn').prop('disabled', true).html('<span class="loader-inline"></span> Connecting...');
+            }
+
+            try {
+                // 1. Check if already authorized
+                let accounts = await window.ethereum.request({ method: 'eth_accounts' });
+
+                // 2. If no accounts, request access (triggers popup)
+                if (accounts.length === 0 && !silent) {
+                    accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                } else if (accounts.length === 0 && silent) {
+                    return; // Silent fail
+                }
+
+                if (!accounts || accounts.length === 0) return;
+                userAddress = accounts[0];
+
+                // 3. Check and switch to Base Network if needed
+                const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+                const baseChainId = '0x2105'; // 8453
+
+                if (currentChainId !== baseChainId) {
+                    showToast('Switching to Base Network...', 'info');
+                    isSwitchingNetwork = true;
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: baseChainId }]
+                        });
+                    } catch (switchError) {
+                        if (switchError.code === 4902 || switchError.code === -32603) {
+                            try {
+                                await window.ethereum.request({
+                                    method: 'wallet_addEthereumChain',
+                                    params: [{
+                                        chainId: baseChainId,
+                                        chainName: 'Base',
+                                        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                                        rpcUrls: ['https://mainnet.base.org'],
+                                        blockExplorerUrls: ['https://basescan.org/']
+                                    }]
+                                });
+                            } catch (addError) {
+                                showToast('Please add Base Network manually', 'error');
+                                isSwitchingNetwork = false;
+                                return;
+                            }
+                        } else if (switchError.code === 4001) {
+                            showToast('Network switch rejected. Base Network is required.', 'error');
+                            isSwitchingNetwork = false;
+                            return;
+                        } else {
+                            showToast('Please switch to Base Network manually', 'error');
+                            isSwitchingNetwork = false;
+                            return;
+                        }
+                    }
+                    await new Promise(r => setTimeout(r, 1000));
+                    isSwitchingNetwork = false;
+                }
+
+                // 4. Re-create provider AFTER network switch
+                provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+
+                // 5. Verify we're on Base
+                const network = await provider.getNetwork();
+                if (network.chainId !== 8453) {
+                    showToast('Please switch to Base Network to continue', 'error');
+                    return;
+                }
+
+                // 6. Initialize contracts
+                coffyToken = new ethers.Contract(coffytokenAddress, coffytokenAbi, signer);
+                moduleContract = new ethers.Contract(moduleAddress, moduleAbi, signer);
+
+                // 7. Get balance with retry
+                let balance;
+                let retries = 3;
+                while (retries > 0) {
+                    try {
+                        balance = await coffyToken.balanceOf(userAddress);
+                        break;
+                    } catch (e) {
+                        retries--;
+                        if (retries === 0) { balance = ethers.BigNumber.from(0); break; }
+                        await new Promise(r => setTimeout(r, 1000));
+                    }
+                }
+
+                const formatted = ethers.utils.formatUnits(balance, 18);
+                const shortAddress = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+                window.userBalance = formatted;
+                window.userAddress = userAddress;
+                localStorage.setItem('userAddress', userAddress);
+
+                $('#wallet-btn').html(`
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="wallet-balance" style="font-size: 0.8rem; font-weight: 600;">💰 ${parseFloat(formatted).toFixed(2)} COFFY</span>
+                        <span style="font-size: 0.7rem; opacity: 0.7;">|</span>
+                        <span style="font-size: 0.7rem;">${shortAddress}</span>
+                    </div>
+                `);
+                $('#wallet-btn').prop('disabled', false);
+
+                if (typeof setupBalanceListener === 'function') setupBalanceListener();
+                if (typeof updateWalletBalance === 'function') updateWalletBalance();
+
+                showToast('Wallet connected successfully!', 'success');
+                document.addEventListener('click', initAudio, { once: true });
+                setTimeout(() => tryReconnect(), 500);
+
+                // Listen for account/chain changes
+                window.ethereum.removeAllListeners('accountsChanged');
+                window.ethereum.removeAllListeners('chainChanged');
+                window.ethereum.on('accountsChanged', (newAccounts) => {
+                    // If accounts change, re-run the connection logic to update UI/signer
+                    if (newAccounts.length > 0 && newAccounts[0].toLowerCase() !== userAddress.toLowerCase()) {
+                        connectWallet(true); // Silent reconnect
+                    } else if (newAccounts.length === 0) {
+                        // Wallet disconnected
+                        userAddress = null;
+                        $('#wallet-btn').prop('disabled', false).text('Connect Wallet');
+                        showToast('Wallet disconnected.', 'info');
+                        window.location.reload(); // Or handle state reset more gracefully
+                    }
+                });
+                window.ethereum.on('chainChanged', () => {
+                    if (!isSwitchingNetwork) window.location.reload();
+                });
+
+            } catch (error) {
+                console.error('Wallet connection error:', error);
+                const errorMsg = error.code === 4001 ? 'Connection rejected by user'
+                    : (error.message ? error.message.substring(0, 100) : 'Connection failed');
+                if (!silent) showToast(errorMsg, 'error');
+            } finally {
+                isConnecting = false;
+                if (!silent && !userAddress) {
+                    $('#wallet-btn').prop('disabled', false).text('Connect Wallet');
+                }
+            }
+        }
+
+
+        // ============ V5 CHECKS & CLAIMS ============
+
+        async function handleGameCompletion(gameId, myScore) {
+            // In V5, the backend automatically signs the outcome (Win or Draw)
+            // and emits it via the 'gameEnded' socket event. No client commit/reveal is needed.
+            // All we have to do is check the status and prompt the user if they haven't claimed.
+            console.log(`handleGameCompletion called for ${gameId}, myScore ${myScore}`);
+            setTimeout(() => checkAndClaimWin(gameId), 2000);
+        }
+
+        async function checkAndResumeState(gameId, knownWinnerColor) {
+            try {
+                if (!gameId) return;
+                console.log(`Checking state for game ${gameId}...`);
+
+                // 1. Check Blockchain Status
+                const game = await moduleContract.games(gameId);
+                const status = typeof game.status === 'object' ? game.status.toNumber() : Number(game.status);
+
+                if (status === 2 || status === 1) {
+                    console.log('Game completed or active — checking claim...');
+                    checkAndClaimWin(gameId);
+                } else if (status === 3) {
+                    console.log(`Game ${gameId} was cancelled.`);
+                }
+            } catch (e) {
+                console.error('Resume failed:', e);
+            }
+        }
+
+
+        // BUG-03 FIX: retry counter prevents infinite loop when opponent goes offline
+        async function checkAndClaimWin(gameId, _retryCount = 0) {
+            const MAX_RETRIES = 20; // 20 × 3s = 60 seconds max
+            try {
+                const game = await moduleContract.games(gameId);
+                // game.status may be BigNumber (ethers v5) — always compare with toNumber()
+                const statusNum = typeof game.status === 'object' ? game.status.toNumber() : game.status;
+                const winnerAddr = game.winner;
+
+                console.log(`🏆 checkAndClaimWin: game ${gameId} status=${statusNum} winner=${winnerAddr}`);
+
+                if (statusNum === 2 && winnerAddr.toLowerCase() === userAddress.toLowerCase()) {
+                    showToast('🎉 You Won! Claiming prize...', 'success');
+
+                    // Check if already claimed
+                    try {
+                        const claimed = await moduleContract.hasClaimedGame(gameId, userAddress);
+                        if (claimed) {
+                            showToast('Prize already claimed.', 'info');
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn('hasClaimedGame check failed (might be ok):', e.message);
+                    }
+
+                    const signature = myColor === 'white' ? window._lastGameSignatureWhite : window._lastGameSignatureBlack;
+                    if (!signature) {
+                        console.warn('No signature yet, retrying...');
+                        setTimeout(() => checkAndClaimWin(gameId, _retryCount + 1), 3000);
+                        return;
+                    }
+                    const tx = await moduleContract.claimGameWin(gameId, signature);
+                    await tx.wait();
+                    showToast('🎉 Prize claimed! Check your wallet.', 'success');
+                    updateWalletBalance();
+
+                } else if (statusNum === 2 && winnerAddr === ethers.constants.AddressZero) {
+                    // Draw Condition
+                    showToast('🤝 Game Drawn! Claiming your funds back...', 'success');
+
+                    try {
+                        const claimed = await moduleContract.hasClaimedGame(gameId, userAddress);
+                        if (claimed) {
+                            showToast('Funds already retrieved.', 'info');
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn('hasClaimedGame check failed:', e.message);
+                    }
+
+                    const signature = myColor === 'white' ? window._lastGameSignatureWhite : window._lastGameSignatureBlack;
+                    if (!signature) {
+                        console.warn('No draw signature yet, retrying...');
+                        setTimeout(() => checkAndClaimWin(gameId, _retryCount + 1), 3000);
+                        return;
+                    }
+
+                    const tx = await moduleContract.claimGameDraw(gameId, signature);
+                    await tx.wait();
+                    showToast('🤝 Funds successfully retrieved.', 'success');
+                    updateWalletBalance();
+
+                } else if (statusNum === 2 && winnerAddr !== ethers.constants.AddressZero) {
+                    showToast('Game completed — opponent won.', 'info');
+                } else if (statusNum !== 2) {
+                    if (_retryCount >= MAX_RETRIES) {
+                        console.warn(`checkAndClaimWin: gave up after ${MAX_RETRIES} retries for game ${gameId}.`);
+                        showToast('Game not finalized yet. If opponent is gone, you can claim timeout win later.', 'warning');
+                        return;
+                    }
+                    // Game not yet completed — check again in a bit
+                    console.log(`Game ${gameId} not yet completed (status=${statusNum}). Retry ${_retryCount + 1}/${MAX_RETRIES} in 3s...`);
+                    setTimeout(() => checkAndClaimWin(gameId, _retryCount + 1), 3000);
+                }
+            } catch (err) {
+                console.error('Claim failed:', err);
+                showToast('Claim error: ' + (err.reason || err.message), 'error');
+            }
+        }
+
+        function handleAccountsChanged(accounts) {
+            if (accounts.length === 0) {
+                showToast('Wallet disconnected', 'error');
+                location.reload();
+            } else if (accounts[0] !== userAddress) {
+                showToast('Account changed, reloading...', 'info');
+                location.reload();
+            }
+        }
+
+        let balanceInterval = null;
+
+        async function updateWalletBalance() {
+            if (!userAddress || !coffyToken) return;
+
+            try {
+                const balance = await coffyToken.balanceOf(userAddress);
+                const formatted = ethers.utils.formatUnits(balance, 18);
+                window.userBalance = formatted;
+
+                // Update UI
+                const newDisplay = `💰 ${parseFloat(formatted).toFixed(2)} COFFY`;
+                $('#wallet-balance').text(newDisplay);
+
+                return formatted;
+            } catch (e) {
+                console.error('Balance update failed:', e);
+                return null;
+            }
+        }
+
+        function setupBalanceListener() {
+            if (!coffyToken || !userAddress) return;
+
+            // Remove old listeners to prevent duplicates
+            coffyToken.removeAllListeners('Transfer');
+
+            // Listen for Transfer events involving this user
+            const filterTo = coffyToken.filters.Transfer(null, userAddress);
+            const filterFrom = coffyToken.filters.Transfer(userAddress, null);
+
+            const updateCallback = () => {
+                console.log('Balance update detected');
+                updateWalletBalance();
+            };
+
+            coffyToken.on(filterTo, updateCallback);
+            coffyToken.on(filterFrom, updateCallback);
+        }
+
+        // Removed: startBalanceRefresh (polling replaced by events)
+
+        // ============ RECONNECTION ============
+        async function tryReconnect() {
+            if (!userAddress || reconnecting) return;
+
+            reconnecting = true;
+
+            try {
+                // Sign message for secure reconnection
+                const signature = await signer.signMessage("Reconnecting to CoffeeChess");
+
+                socket.emit('reconnect', {
+                    walletAddress: userAddress,
+                    signature: signature
+                }, (response) => {
+                    reconnecting = false;
+
+                    if (response.success) {
+                        roomId = response.roomId;
+                        playerNumber = response.playerNumber;
+                        myColor = response.color;
+                        currentGameId = response.gameId;
+                        isMultiplayer = true;
+                        gameStarted = true;
+
+                        // Restore game state
+                        if (response.pgn) {
+                            chess.load_pgn(response.pgn);
+                        } else if (response.fen) {
+                            chess.load(response.fen);
+                        }
+                        board.position(chess.fen());
+                        timerWhite = response.timers.white;
+                        timerBlack = response.timers.black;
+
+                        setupBoardUI(myColor);
+                        updateUI();
+
+                        if (!response.gameOver) {
+                            $('#resign-btn').prop('disabled', false);
+                            // Enable chat
+                            $('#chat-input').prop('disabled', false);
+                            $('#chat-send-btn').prop('disabled', false);
+                        }
+
+                        // Load chat history
+                        if (response.chatHistory && response.chatHistory.length > 0) {
+                            response.chatHistory.forEach(msg => displayChatMessage(msg));
+                        }
+
+                        if (response.gameOver) {
+                            console.log('Reconnected to finished game. Winner:', response.winner);
+                            // If game is over, ensure we try to commit/reveal if we haven't
+                            // We need to know who won to determine score
+                            const winnerName = response.winner; // "white" or "black" or "draw"
+
+                            window._lastGameWinnerColor = winnerName;
+                            window._lastGameSignatureWhite = response.signatureWhite;
+                            window._lastGameSignatureBlack = response.signatureBlack;
+
+                            // Check if we need to resume commit flow
+                            setTimeout(() => checkAndResumeState(currentGameId, winnerName), 1000);
+                        }
+
+                        showToast('Reconnected to game!', 'success');
+                        $('#game-info-text').html(`Reconnected to Game <span class="text-gold">${currentGameId}</span>`);
+                    } else {
+                    }
+                });
+            } catch (error) {
+                console.error("Reconnect error:", error);
+                reconnecting = false;
+            }
+        }
+
+        // ============ BLOCKCHAIN FUNCTIONS ============
+        async function ensureReady() {
+            if (!moduleContract) {
+                await connectWallet();
+                if (!moduleContract) {
+                    showToast('Please connect wallet first', 'error');
+                    return false;
+                }
+            }
+
+            // Check network - must be on Base
+            const net = await provider.getNetwork();
+            if (net.chainId !== 8453) {
+                showToast('Switching to Base Network...', 'info');
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x2105' }]
+                    });
+                    // Re-create provider after switch
+                    provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+                    signer = provider.getSigner();
+                } catch (e) {
+                    showToast('Please switch to Base Network', 'error');
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        async function startPvpGameFlow() {
+            // DEV_MODE: Skip blockchain entirely, just create room
+            if (DEV_MODE) {
+                closeModal('create-modal');
+                showLoadingOverlay('Creating game (DEV MODE)...');
+
+                const timeLimit = parseInt($('#time-input').val()) || 5;
+                const fakeGameId = 'DEV-' + Date.now().toString().slice(-6);
+                currentGameId = fakeGameId;
+
+                socket.emit('createRoom', {
+                    gameId: fakeGameId,
+                    stake: '0',
+                    walletAddress: userAddress || '0xDEV_TEST_WALLET',
+                    timeLimit: timeLimit
+                }, (response) => {
+                    hideLoadingOverlay();
+
+                    if (!response || response.error) {
+                        showToast(response?.error || 'Room creation failed', 'error');
+                        return;
+                    }
+
+                    roomId = response.roomId;
+                    playerNumber = 1;
+                    myColor = 'white';
+                    isMultiplayer = true;
+                    gameStarted = false;
+
+                    setupBoardUI('white');
+                    chess.reset();
+                    board.start();
+                    captured = { w: [], b: [] };
+
+                    timerWhite = timeLimit * 60;
+                    timerBlack = timeLimit * 60;
+
+                    updateUI();
+
+                    showToast('Game created! Share Room ID with opponent', 'success');
+                    $('#game-info-text').html(`
+                        <strong>Room ID: <span class="text-gold">${roomId}</span></strong><br>
+                        <span class="text-muted">Share this with opponent to join</span>
+                    `);
+
+                    ignoreNextClick = false;
+                    aiThinking = false;
+                });
+                return;
+            }
+
+            // PRODUCTION MODE: Full blockchain flow
+            if (!await ensureReady()) return;
+
+            const stake = $('#stake-input').val();
+            const stakeNum = parseFloat(stake);
+
+            if (!stake || isNaN(stakeNum) || stakeNum <= 0) {
+                showToast('Please enter a valid stake amount', 'error');
+                return;
+            }
+
+            const MIN_STAKE = 0.01;
+            const MAX_STAKE = 10000;
+
+            if (stakeNum < MIN_STAKE) {
+                showToast(`Minimum stake is ${MIN_STAKE} COFFY`, 'error');
+                return;
+            }
+
+            if (stakeNum > MAX_STAKE) {
+                showToast(`Maximum stake is ${MAX_STAKE} COFFY`, 'error');
+                return;
+            }
+
+            const stakeWei = ethers.utils.parseUnits(stake, 18);
+            const timeLimit = parseInt($('#time-input').val()) || 5;
+
+            closeModal('create-modal');
+            showLoadingOverlay('Creating game...', [
+                'Checking balance',
+                'Approving COFFY tokens',
+                'Creating game on blockchain',
+                'Setting up game room'
+            ]);
+
+            try {
+                updateLoadingProgress('Checking balance');
+                const balance = await coffyToken.balanceOf(userAddress);
+                if (balance.lt(stakeWei)) {
+                    hideLoadingOverlay();
+                    showToast('Insufficient COFFY balance', 'error');
+                    return;
+                }
+
+                updateLoadingProgress('Approving COFFY tokens');
+
+                // Check if we need to approve (only once ever with unlimited amount)
+                console.log(`Checking allowance for user: ${userAddress} -> module: ${moduleAddress}`);
+                // Verify moduleAddress is correct
+                if (!moduleAddress || moduleAddress.length !== 42) {
+                    throw new Error(`Invalid module address: ${moduleAddress}`);
+                }
+
+                const allowance = await coffyToken.allowance(userAddress, moduleAddress);
+                console.log(`Current allowance: ${allowance.toString()}, Required: ${stakeWei.toString()}`);
+
+                if (allowance.lt(stakeWei)) {
+                    console.log('Allowance insufficient. Requesting approval...');
+                    updateLoadingMessage('Please approve COFFY tokens in MetaMask...');
+
+                    // Approve INFINITE amount for better UX
+                    const approveTx = await coffyToken.approve(moduleAddress, ethers.constants.MaxUint256);
+                    console.log('Approval tx sent:', approveTx.hash);
+                    updateLoadingMessage('Waiting for approval confirmation...');
+                    await approveTx.wait();
+                    console.log('Approval confirmed on-chain');
+
+                    // WAIT for allowance to reflect on-chain (RPC sync lag fix)
+                    updateLoadingMessage('Verifying approval...');
+                    let retries = 0;
+                    while (retries < 10) {
+                        const newAllowance = await coffyToken.allowance(userAddress, moduleAddress);
+                        if (newAllowance.gte(stakeWei)) {
+                            console.log('✅ Allowance updated on-chain:', newAllowance.toString());
+                            break;
+                        }
+                        console.log(`Waiting for allowance update... (Attempt ${retries + 1})`);
+                        await new Promise(r => setTimeout(r, 2000));
+                        retries++;
+                    }
+
+                    hasApprovedTokens = true;
+                    sessionStorage.setItem('coffyApproved', 'true');
+                } else {
+                    console.log('Allowance is sufficient. Skipping approval.');
+                }
+
+                updateLoadingProgress('Creating game on blockchain');
+
+                // Contract expects: function createGame(uint128 _stakeAmount)
+                const txPromise = moduleContract.createGame(stakeWei);
+                const txTimeout = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Transaction timeout')), 60000)
+                );
+                const tx = await Promise.race([txPromise, txTimeout]);
+
+                updateLoadingMessage('Waiting for blockchain confirmation...');
+                const receipt = await tx.wait();
+
+                let gameId = null;
+                console.log('📋 Transaction receipt:', receipt);
+                console.log('📋 Receipt logs count:', receipt.logs.length);
+
+                // Try parsing BattleCreated event from receipt logs
+                receipt.logs.forEach((log, index) => {
+                    try {
+                        const parsed = moduleContract.interface.parseLog(log);
+                        console.log(`📋 Log ${index}: ${parsed.name}`, parsed.args);
+                        if (parsed.name === 'GameCreated') {
+                            gameId = parsed.args.gameId.toString();
+                            console.log('✅ Found gameId from GameCreated event:', gameId);
+                        }
+                    } catch (e) {
+                        // Log is from a different contract (e.g., ERC20 Transfer)
+                        console.log(`📋 Log ${index}: Not a module event (${e.message})`);
+                    }
+                });
+
+                // BUG-13 FIX: Fallback nextGameId is race-condition prone.
+                // If event parsing fails, show error rather than using potentially wrong ID.
+                if (!gameId) {
+                    try {
+                        console.warn('⚠️ GameCreated event not found in logs, trying fallback...');
+                        const nextId = await moduleContract.nextGameId();
+                        // WARNING: this is only safe if no one else creates a game at the same time.
+                        // In production, if this fires, it's more likely an RPC indexing delay.
+                        // We use it as last resort only.
+                        const fallbackId = (nextId.toNumber() - 1).toString();
+                        console.warn(`⚠️ Fallback gameId: ${fallbackId} — verify this is correct on BaseScan before trusting it.`);
+                        gameId = fallbackId;
+                        showToast('⚠️ Used fallback game ID — check console to verify.', 'warning');
+                    } catch (fbError) {
+                        console.error('❌ All game ID resolution methods failed:', fbError);
+                    }
+                }
+
+                if (gameId) {
+                    currentGameId = gameId;
+
+
+
+                    updateLoadingProgress('Setting up game room');
+                    updateLoadingMessage('Verifying game on server...');
+
+                    socket.emit('createRoom', {
+                        gameId,
+                        stake: stakeWei.toString(),
+                        walletAddress: userAddress,
+                        timeLimit: timeLimit
+                    }, (response) => {
+                        hideLoadingOverlay();
+
+                        if (!response || response.error) {
+                            showToast(response?.error || 'Room creation failed', 'error');
+                            return;
+                        }
+
+                        roomId = response.roomId;
+                        playerNumber = 1;
+                        myColor = 'white';
+                        isMultiplayer = true;
+                        gameStarted = false;
+
+                        setupBoardUI('white');
+                        chess.reset();
+                        board.start();
+                        captured = { w: [], b: [] };
+
+                        timerWhite = timeLimit * 60;
+                        timerBlack = timeLimit * 60;
+
+                        updateUI();
+
+                        showToast('Game created! Waiting for opponent...', 'success');
+                        $('#game-info-text').html(`
+                            Game ID: <strong class="text-gold">${gameId}</strong><br>
+                            Room: <strong>${roomId}</strong><br>
+                            <span class="text-muted">Waiting for opponent...</span>
+                        `);
+
+                        ignoreNextClick = false;
+                        aiThinking = false;
+                    });
+                } else {
+                    hideLoadingOverlay();
+                    showToast('Failed to extract game ID', 'error');
+                }
+            } catch (error) {
+                hideLoadingOverlay();
+                console.error(error);
+                showToast('Error: ' + (error.reason || error.message), 'error');
+            }
+        }
+
+        async function joinPvpGameFlow() {
+            const inputId = $('#join-game-id').val();
+            if (!inputId) {
+                showToast('Please enter a Room ID', 'error');
+                return;
+            }
+
+            // DEV_MODE: Join by Room ID directly, skip blockchain
+            if (DEV_MODE) {
+                closeModal('join-modal');
+                showLoadingOverlay('Joining game (DEV MODE)...');
+
+                socket.emit('joinRoom', {
+                    roomId: inputId,
+                    walletAddress: userAddress || '0xDEV_TEST_WALLET_2',
+                    gameId: 'DEV-JOIN'
+                }, (response) => {
+                    hideLoadingOverlay();
+
+                    if (!response || response.error) {
+                        showToast(response?.error || 'Join failed', 'error');
+                        return;
+                    }
+
+                    currentGameId = inputId;
+                    roomId = inputId;
+                    playerNumber = 2;
+                    myColor = 'black';
+                    isMultiplayer = true;
+
+                    setupBoardUI('black');
+                    chess.reset();
+                    board.start();
+                    captured = { w: [], b: [] };
+
+                    showToast('Joined! Waiting for game to start...', 'success');
+                    $('#game-info-text').html(`Joined room <span class="text-gold">${inputId}</span>`);
+
+                    ignoreNextClick = false;
+                    aiThinking = false;
+                });
+                return;
+            }
+
+            // PRODUCTION MODE: Join by Room ID OR Game ID
+            const inputIdValue = inputId.trim();
+            if (!await ensureReady()) return;
+
+            closeModal('join-modal');
+            showLoadingOverlay('Finding game...');
+
+            // Helper function to join with room info
+            const joinWithRoomInfo = async (roomInfo) => {
+                console.log('🎮 joinWithRoomInfo called with:', JSON.stringify(roomInfo));
+                const gameIdRaw = roomInfo.gameId;
+                const gameId = Number(gameIdRaw); // ✅ Always a number for contract calls
+                const roomIdToJoin = roomInfo.roomId;
+                const stakeAmount = ethers.BigNumber.from(roomInfo.stake || '0');
+                const stakeDisplay = ethers.utils.formatUnits(stakeAmount, 18);
+                console.log('🎮 gameId:', gameId, 'roomId:', roomIdToJoin, 'stake:', stakeAmount.toString());
+
+                try {
+                    // ── Step 1: Styled confirmation modal ──────────────────────────
+                    if (stakeAmount.gt(0)) {
+                        const confirmed = await new Promise((resolve) => {
+                            const modalId = 'join-confirm-modal';
+                            // Remove any existing
+                            $(`#${modalId}`).remove();
+                            const html = `
+                                <div id="${modalId}" class="modal-overlay active" style="z-index:9999;">
+                                    <div class="modal-content" style="text-align:center;max-width:360px;">
+                                        <div style="font-size:2.5rem;margin-bottom:12px;">♟️</div>
+                                        <h2 class="modal-title" style="margin-bottom:8px;">Join Game</h2>
+                                        <p style="color:var(--text-muted);margin-bottom:6px;">Game ID: <strong>#${gameId}</strong></p>
+                                        <p style="color:var(--text-muted);margin-bottom:20px;">
+                                            Stake: <strong style="color:var(--accent-gold);">${parseFloat(stakeDisplay).toFixed(2)} COFFY</strong>
+                                        </p>
+                                        <div style="display:flex;gap:10px;justify-content:center;">
+                                            <button id="join-cancel-btn" class="btn btn-secondary" style="flex:1;">Cancel</button>
+                                            <button id="join-confirm-btn" class="btn btn-primary" style="flex:1;">Join Game</button>
+                                        </div>
+                                    </div>
+                                </div>`;
+                            $('body').append(html);
+                            $('#join-confirm-btn').on('click', () => { $(`#${modalId}`).remove(); resolve(true); });
+                            $('#join-cancel-btn').on('click', () => { $(`#${modalId}`).remove(); resolve(false); });
+                        });
+                        if (!confirmed) { hideLoadingOverlay(); return; }
+                    }
+
+                    showLoadingOverlay('Checking balance...');
+
+                    // ── Step 2: Balance check ──────────────────────────────────────
+                    const balance = await coffyToken.balanceOf(userAddress);
+                    if (balance.lt(stakeAmount)) {
+                        hideLoadingOverlay();
+                        showToast(`Insufficient COFFY — need ${parseFloat(stakeDisplay).toFixed(2)} COFFY`, 'error');
+                        return;
+                    }
+
+                    // ── Step 3: Allowance check + approval ────────────────────────
+                    updateLoadingMessage('Checking COFFY allowance...');
+                    let allowance = await coffyToken.allowance(userAddress, moduleAddress);
+                    console.log(`Allowance: ${allowance.toString()}, Required: ${stakeAmount.toString()}`);
+
+                    if (allowance.lt(stakeAmount)) {
+                        // Approve unlimited (MaxUint256) — standard DeFi UX, no re-prompts needed
+                        updateLoadingMessage('📝 Please approve COFFY in MetaMask...');
+                        const approveTx = await coffyToken.approve(moduleAddress, ethers.constants.MaxUint256);
+                        console.log('Approval tx sent:', approveTx.hash);
+                        updateLoadingMessage('⏳ Waiting for approval confirmation...');
+                        await approveTx.wait(1); // Wait 1 confirmation
+
+                        // ── Re-verify allowance on-chain after approval ───────────
+                        updateLoadingMessage('Verifying approval on-chain...');
+                        let verified = false;
+                        for (let i = 0; i < 5; i++) {
+                            await new Promise(r => setTimeout(r, 2000)); // 2s between checks
+                            allowance = await coffyToken.allowance(userAddress, moduleAddress);
+                            console.log(`Post-approval allowance check ${i + 1}: ${allowance.toString()}`);
+                            if (allowance.gte(stakeAmount)) { verified = true; break; }
+                        }
+                        if (!verified) {
+                            hideLoadingOverlay();
+                            showToast('Approval not yet visible on-chain. Please try joining again.', 'warning');
+                            return;
+                        }
+                        showToast('✅ COFFY approved!', 'success');
+                    }
+
+                    // ── Step 4: Join on blockchain ─────────────────────────────────
+                    updateLoadingMessage('Joining game on blockchain...');
+                    console.log('🎮 Calling joinGame with gameId:', gameId, '(type:', typeof gameId, ')');
+                    if (!moduleContract) {
+                        moduleContract = new ethers.Contract(moduleAddress, moduleAbi, signer);
+                    }
+                    const joinTx = await moduleContract.joinGame(gameId);
+                    console.log('🎮 joinGame tx sent:', joinTx.hash);
+                    updateLoadingMessage('⏳ Waiting for blockchain confirmation...');
+                    await joinTx.wait();
+                    console.log('✅ joinGame confirmed');
+
+                    // ── Step 5: Join socket room ───────────────────────────────────
+                    updateLoadingMessage('Joining game room...');
+                    socket.emit('joinRoom', {
+                        roomId: roomIdToJoin,
+                        walletAddress: userAddress,
+                        gameId
+                    }, (response) => {
+                        hideLoadingOverlay();
+
+                        if (!response || response.error) {
+                            showToast(response?.error || 'Join failed', 'error');
+                            return;
+                        }
+
+                        currentGameId = gameId;
+                        roomId = roomIdToJoin;
+                        playerNumber = 2;
+                        myColor = 'black';
+                        isMultiplayer = true;
+
+                        setupBoardUI('black');
+                        showToast('Joined! Game starting...', 'success');
+                        $('#game-info-text').html(`Game ID: <span class="text-gold">${gameId}</span>`);
+                        ignoreNextClick = false;
+                        aiThinking = false;
+                    });
+
+                } catch (error) {
+                    hideLoadingOverlay();
+                    console.error(error);
+                    const msg = error.reason || error.data?.message || error.message || 'Join failed';
+                    showToast('Join failed: ' + msg.substring(0, 120), 'error');
+                }
+            };
+
+
+            // First try as Room ID
+            socket.emit('getRoomInfo', inputIdValue, async (roomInfo) => {
+                if (roomInfo && !roomInfo.error) {
+                    // Found by Room ID
+                    console.log('✅ Found room by Room ID');
+                    await joinWithRoomInfo(roomInfo);
+                } else {
+                    // Try as Game ID (blockchain gameId)
+                    console.log('🔍 Room ID not found, trying as Game ID...');
+                    socket.emit('findRoomByGameId', inputIdValue, async (gameRoomInfo) => {
+                        if (gameRoomInfo && !gameRoomInfo.error) {
+                            // Found by Game ID
+                            console.log('✅ Found room by Game ID');
+                            await joinWithRoomInfo(gameRoomInfo);
+                        } else {
+                            hideLoadingOverlay();
+                            showToast('Game not found. Check ID and try again.', 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        async function claimReward() {
+            if (!await ensureReady()) return;
+            if (!currentGameId) {
+                showToast('No active game to claim.', 'error');
+                return;
+            }
+
+            const gameId = currentGameId;
+            const claimBtn = document.getElementById('claim-btn');
+            const winnerClaimBtn = document.getElementById('winner-claim-btn');
+
+            const setBtns = (disabled) => {
+                if (claimBtn) claimBtn.disabled = disabled;
+                if (winnerClaimBtn) { winnerClaimBtn.disabled = disabled; winnerClaimBtn.textContent = disabled ? '⏳ Processing...' : '🏆 Claim Reward'; }
+            };
+            setBtns(true);
+
+            try {
+                // ── STEP 1: Check on-chain status ──────────────────────────
+                showToast('⏳ Checking blockchain status...', 'info');
+                let gameInfo = await moduleContract.games(gameId);
+                let statusNum = typeof gameInfo.status === 'object' ? gameInfo.status.toNumber() : Number(gameInfo.status);
+                console.log(`claimReward: game ${gameId} status = ${statusNum}`);
+
+                if (statusNum === 3) {
+                    showToast('Game was cancelled.', 'error');
+                    setBtns(false);
+                    return;
+                }
+
+                // ── STEP 2: Submit Signature to Backend ────────────────────
+                const signature = myColor === 'white' ? window._lastGameSignatureWhite : window._lastGameSignatureBlack;
+                if (!signature) {
+                    showToast('Wait for server signature...', 'warning');
+                    setBtns(false);
+                    return;
+                }
+
+                // ── STEP 3: Claim ──────────────────────────────────────────
+                showToast('💰 Claiming reward...', 'info');
+                try {
+                    const claimed = await moduleContract.hasClaimedGame(gameId, userAddress);
+                    if (claimed) {
+                        showToast('Already claimed! 🎉', 'info');
+                        $('#winner-claim-btn').hide();
+                        closeModal('winner-modal');
+                        setBtns(false);
+                        return;
+                    }
+                } catch (_) { /* fallback logic if needed */ }
+
+                console.log("Signature obtained from server:", signature);
+
+                // Check if it's a draw or win based on the winner address
+                let tx;
+                if (gameInfo.winner === ethers.constants.AddressZero && statusNum === 1) { // It's still active or draw, but we have signature
+                    console.warn("Falling back to standard verification flow...");
+                    // Since verify is removed, fallback to letting contract fail
+                }
+
+                if (window._lastGameWinnerColor === 'draw') {
+                    tx = await moduleContract.claimGameDraw(gameId, signature);
+                } else {
+                    tx = await moduleContract.claimGameWin(gameId, signature);
+                }
+
+                await tx.wait();
+                showToast('🎉 Reward claimed! Check your wallet.', 'success');
+                $('#claim-btn').addClass('hidden');
+                $('#winner-claim-btn').hide();
+                closeModal('winner-modal');
+                await updateWalletBalance();
+
+            } catch (error) {
+                console.error('claimReward error:', error);
+                const msg = error.reason || error.message || 'Unknown error';
+                if (msg.includes('already claimed') || msg.includes('claimed')) {
+                    showToast('Already claimed! 🎉', 'info');
+                    closeModal('winner-modal');
+                } else {
+                    showToast('Error: ' + msg.substring(0, 120), 'error');
+                }
+            } finally {
+                setBtns(false);
+            }
+        }
+
+        // ============ SOCKET HANDLERS ============
+        function initSocket() {
+            // Dynamic Socket URL: Supports Localhost, LAN, and Production
+            const hostname = window.location.hostname || 'localhost';
+            const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+            const isProduction = hostname === 'coffeechess.com';
+
+            // If production, use the render backend
+            // If dev/lan, force port 3005
+            let url;
+            if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
+                url = `http://${hostname}:3005`;
+            } else {
+                url = 'https://coffeechess-backend.onrender.com';
+            }
+
+            console.log('🔌 Connecting to socket server:', url);
+
+            socket = io(url, {
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                timeout: 20000
+            });
+
+            socket.on('connect', () => {
+                if (userAddress && !reconnecting) {
+                    tryReconnect();
+                }
+            });
+
+            socket.on('disconnect', (reason) => {
+                if (reason === 'io server disconnect') {
+                    // Server forced disconnect, try reconnect
+                    // showToast('Connection lost. Attempting to reconnect...', 'warning');
+                    socket.connect();
+                } else if (reason === 'transport close') {
+                    // showToast('Connection lost. Attempting to reconnect...', 'warning');
+                } else {
+                    // showToast('Connection issue. Please wait...', 'warning');
+                }
+            });
+
+            socket.on('reconnect', (attemptNumber) => {
+                showToast(`Reconnected`, 'success');
+                // Try to restore game session
+                if (userAddress && roomId) {
+                    tryReconnect();
+                }
+            });
+
+            // (gameResult handler removed — BUG-09: was dead code, only logged to console)
+
+            socket.on('reconnect_error', (error) => {
+                // showToast('Reconnection failed. Please refresh the page.', 'error');
+            });
+
+            socket.on('reconnect_failed', () => {
+                showToast('Could not reconnect. Please refresh the page.', 'error');
+            });
+
+            // Handle verification progress feedback from server
+            socket.on('verificationProgress', (data) => {
+                console.log('Verification update:', data);
+                if (data && data.message) {
+                    updateLoadingMessage(data.message);
+                }
+            });
+
+            // Handle connection errors
+            socket.on('connect_error', (error) => {
+                console.error('Socket connection error:', error);
+                showToast('Connection error. Please check your internet connection.', 'error');
+                hideLoadingOverlay();
+            });
+
+            socket.on('startGame', (data) => {
+                console.log('Game starting:', data);
+
+                if (!data) {
+                    console.error('startGame received with no data');
+                    return;
+                }
+
+                playerNumber = data.playerNumber;
+                myColor = data.color;
+                isMultiplayer = true;
+                gameStarted = true;
+
+                // ✅ Always sync currentGameId to the actual running game
+                if (data.gameId) {
+                    currentGameId = data.gameId;
+                    console.log(`🔄 currentGameId updated from startGame: ${currentGameId}`);
+                }
+
+                setupBoardUI(myColor);
+                chess.reset();
+                board.start();
+                captured = { w: [], b: [] };
+
+                if (data.timers) {
+                    timerWhite = data.timers.white;
+                    timerBlack = data.timers.black;
+                } else {
+                    timerWhite = 300;
+                    timerBlack = 300;
+                }
+
+                updateUI();
+                $('#resign-btn').prop('disabled', false);
+                $('#offer-draw-btn').prop('disabled', false).text('🤝 Offer Draw');
+
+                // Enable chat
+                $('#chat-input').prop('disabled', false);
+                $('#chat-send-btn').prop('disabled', false);
+
+                // Load chat history
+                if (data.chatHistory && data.chatHistory.length > 0) {
+                    data.chatHistory.forEach(msg => displayChatMessage(msg));
+                }
+
+                const opponentAddr = data.opponent ?
+                    `${data.opponent.slice(0, 6)}...${data.opponent.slice(-4)}` : 'Opponent';
+
+                if (audioEnabled && sounds.gameStart) {
+                    sounds.gameStart.currentTime = 0;
+                    sounds.gameStart.play().catch(e => console.log('Audio overlap'));
+                }
+
+                showToast('Game started!', 'success');
+                $('#game-info-text').html(`
+                    <span id="ping-indicator" class="ping-dot ping-good" title="Ping"></span>vs ${opponentAddr}<br>
+                    Game: <span class="text-gold">${currentGameId}</span>
+                `);
+
+                // --- Mobile Sync ---
+                $('#mobile-game-id').html(`Game: <span class="text-gold">${currentGameId}</span>`);
+                $('#mobile-status-text').html(`<span id="mobile-ping-indicator" class="ping-dot ping-good" title="Ping"></span>Playing vs ${opponentAddr}`);
+            });
+
+            // Chat message received
+            socket.on('chatMessage', (data) => {
+                displayChatMessage(data);
+
+                // Show notification if chat tab is not active
+                if ($('#chat-tab').hasClass('hidden')) {
+                    $('#chat-badge').removeClass('hidden');
+                    playNotificationSound();
+                }
+            });
+
+            // Server validated move
+            socket.on('moveAccepted', (data) => {
+                // Update local board to match server
+                chess.load(data.fen);
+                board.position(data.fen);
+
+                highlightLastMove(data.move.from, data.move.to);
+
+                // Handle move visuals (captures, etc)
+                const isCapture = data.move.captured;
+                if (isCapture) {
+                    const color = chess.turn() === 'w' ? 'b' : 'w';
+                    captured[color].push(data.move.captured);
+                }
+
+                updateUI();
+
+                // Play appropriate sound
+                if (isCapture) {
+                    playCaptureSound();
+                } else {
+                    playMoveSound();
+                }
+
+                // --- PREMOVE EXECUTION ---
+                if (window.pendingPremove) {
+                    const { source, target, promotion } = window.pendingPremove;
+                    window.pendingPremove = null; // clear it
+
+                    // Check if it's still a valid move in the new position
+                    // We must use chess.moves() and compare 'to' and 'from'
+                    const validMoves = chess.moves({ verbose: true });
+                    const isValid = validMoves.some(m => m.from === source && m.to === target);
+
+                    if (isValid) {
+                        console.log(`🚀 Executing queued premove: ${source}-${target}`);
+
+                        // Execute the move natively via our proxy snippet
+                        // If it's a pawn promotion, executeMove will automatically use 'q' or the requested piece
+                        executeMove(source, target, promotion || 'q');
+                        board.position(chess.fen());
+
+                        // Sound feedback for premove (handled by executeMove internally for local, but we just trigger if we want)
+                    } else {
+                        console.log(`❌ Premove ${source}-${target} is no longer valid. Cancelled.`);
+                    }
+                    removeHighlights();
+                }
+            });
+
+            socket.on('moveRejected', (data) => {
+                showToast('Move rejected: ' + data.reason, 'error');
+                // Reset board to server state
+                board.position(chess.fen());
+            });
+
+            // --- LATENCY MONITORING (PING/PONG) ---
+            setInterval(() => {
+                if (socket && socket.connected && isMultiplayer && gameStarted) {
+                    socket.emit('pingHeartbeat', Date.now());
+                } else if (!isMultiplayer || !gameStarted) {
+                    $('#ping-indicator, #mobile-ping-indicator').removeClass('ping-good ping-fair ping-poor').addClass('ping-offline');
+                }
+            }, 2000);
+
+            socket.on('pongHeartbeat', (clientTime) => {
+                const latency = Date.now() - clientTime;
+
+                const desktopPing = $('#ping-indicator');
+                const mobilePing = $('#mobile-ping-indicator');
+
+                desktopPing.removeClass('ping-good ping-fair ping-poor ping-offline ping-pulse');
+                mobilePing.removeClass('ping-good ping-fair ping-poor ping-offline ping-pulse');
+
+                if (latency < 100) {
+                    desktopPing.addClass('ping-good').attr('title', `Ping: ${latency}ms`);
+                    mobilePing.addClass('ping-good').attr('title', `Ping: ${latency}ms`);
+                } else if (latency < 300) {
+                    desktopPing.addClass('ping-fair').attr('title', `Ping: ${latency}ms`);
+                    mobilePing.addClass('ping-fair').attr('title', `Ping: ${latency}ms`);
+                } else {
+                    desktopPing.addClass('ping-poor').attr('title', `Ping: ${latency}ms`);
+                    mobilePing.addClass('ping-poor').attr('title', `Ping: ${latency}ms`);
+                }
+            });
+
+            socket.on('timerUpdate', (data) => {
+                timerWhite = data.white;
+                timerBlack = data.black;
+                updateTimerDisplay();
+            });
+
+            socket.on('gameEnded', (data) => {
+                console.log('🏁 gameEnded event received:', data);
+                gameStarted = false;
+                clearInterval(timerInterval);
+
+                // Store scores so claimReward can determine myScore
+                window._lastGameScores = {
+                    white: data.scores?.white ?? data.whiteScore,
+                    black: data.scores?.black ?? data.blackScore
+                };
+
+                // Store signatures so claimReward can submit them
+                window._lastGameSignatureWhite = data.signatureWhite;
+                window._lastGameSignatureBlack = data.signatureBlack;
+                window._lastGameWinnerColor = data.winner;
+
+                showWinnerModal(data.winner, data.reason, data.winnerAddress);
+            });
+
+            socket.on('opponentDisconnected', (data) => {
+                showToast(data.message, 'warning');
+                $('#game-info-text').text('Opponent disconnected. Waiting 60s...');
+                $('#mobile-status-text').text('Opponent Disconnected');
+
+                // Visual Pulse Indicator
+                $('#ping-indicator, #mobile-ping-indicator')
+                    .removeClass('ping-good ping-fair ping-poor ping-offline')
+                    .addClass('ping-pulse')
+                    .attr('title', 'Opponent Disconnected');
+            });
+
+            socket.on('opponentReconnected', () => {
+                showToast('Opponent reconnected', 'success');
+                $('#game-info-text').html(`vs Opponent<br>Game: <span class="text-gold">${currentGameId}</span>`);
+                $('#mobile-status-text').text('Opponent Reconnected');
+                $('#mobile-game-id').html(`Game: <span class="text-gold">${currentGameId}</span>`);
+
+                // Clear pulse immediately; standard pongHeartbeat will restore normal colors within 2s
+                $('#ping-indicator, #mobile-ping-indicator').removeClass('ping-pulse').addClass('ping-good');
+            });
+
+            socket.on('playerLeft', () => {
+                showToast('Opponent left the game', 'warning');
+            });
+
+            // --- DRAW OFFER HANDLERS ---
+            socket.on('drawOffered', () => {
+                // Opponent offered a draw
+                playNotificationSound();
+
+                // Construct a temporary UI confirm dialog. In a real app this would be a custom modal, 
+                // but native confirm works synchronously and stops execution until they answer.
+                // To avoid blocking the page entirely if they go AFK, a custom modal is better, but let's use a simple custom toast/modal
+                openDrawOfferModal();
+            });
+
+            socket.on('drawDeclined', () => {
+                showToast('Opponent declined the draw offer.', 'info');
+                // Restore the offer draw button
+                $('#offer-draw-btn').prop('disabled', false).text('🤝 Offer Draw');
+            });
+        }
+
+        // ============ CHESS LOGIC ============
+        function onDragStart(source, piece) {
+            // Do NOT clear selection here. 
+            // If the user is just clicking, this event fires but we want to keep selection.
+            // If the user drags, onDrop will handle clearing selection.
+
+            // Game over check
+            if (chess.game_over()) return false;
+
+            // AI is thinking - block all moves
+            if (aiThinking) return false;
+
+            // Basic turn check - don't allow moving opponent's pieces
+            if ((chess.turn() === 'w' && piece.search(/^b/) !== -1) ||
+                (chess.turn() === 'b' && piece.search(/^w/) !== -1)) {
+                return false;
+            }
+
+            // Multiplayer: Premove check
+            if (isMultiplayer) {
+                if (!gameStarted) return false;
+
+                // If it's NOT our turn, we enter PREMOVE mode
+                const myTurn = (myColor === 'white' && chess.turn() === 'w') || (myColor === 'black' && chess.turn() === 'b');
+
+                if (!myTurn) {
+                    // Allowed to pick up OUR pieces ONLY to queue a premove
+                    if ((myColor === 'white' && piece.search(/^w/) !== -1) ||
+                        (myColor === 'black' && piece.search(/^b/) !== -1)) {
+                        return true; // allow dragging for premove
+                    }
+                    return false;
+                }
+            }
+
+            // AI game: only allow white (player)
+            if (aiEnabled) {
+                if (chess.turn() !== 'w') return false;
+            }
+
+            // Highlight possible moves when starting to drag
+            const moves = chess.moves({
+                square: source,
+                verbose: true
+            });
+
+            for (let i = 0; i < moves.length; i++) {
+                highlightSquare(moves[i].to, moves[i].captured ? true : false);
+            }
+
+            return true;
+        }
+
+        function onDrop(source, target) {
+            // If source != target, it's a move (or invalid move that at least moved)
+            if (source !== target) {
+                removeHighlights();
+                clearSelection();
+
+                // Prevent the subsequent click event from firing specifically for this action
+                ignoreNextClick = true;
+                setTimeout(() => ignoreNextClick = false, 300);
+            } else {
+                // Snapback (source === target) - treat as potential click
+                // We do NOT clear selection here, to allow onSquareClick to handle it.
+            }
+
+            // Check if it's currently NOT our turn (Premove scenario)
+            const myTurn = (myColor === 'white' && chess.turn() === 'w') || (myColor === 'black' && chess.turn() === 'b');
+
+            if (isMultiplayer && !myTurn) {
+                // Determine if this pseudo-move is mathematically valid for this piece ignoring turn
+                // We do a temporary trick: swap the turn, check if valid, swap back
+                const currentFen = chess.fen();
+                const tokens = currentFen.split(' ');
+                tokens[1] = tokens[1] === 'w' ? 'b' : 'w';
+                const pseudoFen = tokens.join(' ');
+
+                const pseudoChess = new Chess(pseudoFen);
+                const pseudoMove = pseudoChess.move({ from: source, to: target, promotion: 'q' });
+
+                if (pseudoMove !== null) {
+                    // Queue the premove
+                    console.log(`⏱ Premove queued: ${source}-${target}`);
+                    window.pendingPremove = { source, target, promotion: 'q' };
+                    // Highlight the intended premove square in red/orange to signify "queued"
+                    removeHighlights();
+                    $(`.square-${source}`).append('<div class="highlight-premove"></div>');
+                    $(`.square-${target}`).append('<div class="highlight-premove"></div>');
+                } else {
+                    console.log('❌ Invalid premove attempt');
+                }
+                return 'snapback'; // Always snapback immediately because it hasn't actually happened yet
+            }
+
+            // --- PROMOTION CHECK ---
+            // If the piece is a pawn moving to rank 1 or 8, trigger modal
+            const pieceStr = chess.get(source);
+            if (pieceStr && pieceStr.type === 'p') {
+                const targetRank = target.charAt(1);
+                // Valid promotion ranks relative to piece color (w to 8, b to 1)
+                if ((pieceStr.color === 'w' && targetRank === '8') || (pieceStr.color === 'b' && targetRank === '1')) {
+
+                    // Verify that the move is actually legal before asking for promotion
+                    const testMove = chess.move({ from: source, to: target, promotion: 'q' });
+                    if (testMove) {
+                        chess.undo(); // It's legal, but we await user choice
+                        console.log('👑 Pawn promotion triggered, showing modal');
+                        window.pendingPromotion = { source, target };
+                        $('#promotion-modal').addClass('active');
+                        return 'snapback'; // Don't snap the piece in onDrop yet, wait for the actual execute Move
+                    }
+                }
+            }
+
+            // Normal move processing for non-promotions
+            executeMove(source, target, 'q');
+        }
+
+        // Global functions for the Promotion Modal HTML buttons
+        window.choosePromotion = function (piece) {
+            $('#promotion-modal').removeClass('active');
+            if (window.pendingPromotion) {
+                const { source, target } = window.pendingPromotion;
+                window.pendingPromotion = null;
+                // We know it's legal because we tested it before
+                executeMove(source, target, piece);
+                board.position(chess.fen()); // Manually snap the board since we snapbacked
+            }
+        };
+
+        window.cancelPromotion = function () {
+            $('#promotion-modal').removeClass('active');
+            window.pendingPromotion = null;
+        };
+
+        // Extracted execution logic so it can be called by onDrop or completePromotion
+        function executeMove(source, target, promotionPiece) {
+            const move = chess.move({
+                from: source,
+                to: target,
+                promotion: promotionPiece
+            });
+
+            if (move === null) return 'snapback';
+
+            // In multiplayer, send to server and UNDO the local move
+            if (isMultiplayer) {
+                // Clear any existing premove since we just made a real move
+                window.pendingPremove = null;
+
+                // Undo the move - wait for server confirmation
+                chess.undo();
+
+                socket.emit('makeMove', {
+                    move: {
+                        from: source,
+                        to: target,
+                        promotion: move.promotion
+                    },
+                    fen: chess.fen(),
+                    playerNumber
+                });
+
+                // Move will be confirmed by server via 'moveAccepted'
+                // or rejected via 'moveRejected'
+                // For now, show the move optimistically
+                chess.move({
+                    from: source,
+                    to: target,
+                    promotion: move.promotion
+                });
+
+            } else {
+                // Local game (vs AI)
+                const isCapture = move.captured;
+                if (isCapture) {
+                    captured[chess.turn() === 'w' ? 'b' : 'w'].push(move.captured);
+                }
+
+                highlightLastMove(move.from, move.to);
+                updateUI();
+
+                // Play appropriate sound
+                if (isCapture) {
+                    if (audioEnabled && sounds.capture) {
+                        sounds.capture.currentTime = 0;
+                        sounds.capture.play().catch(e => console.log('Audio overlap'));
+                    }
+                } else {
+                    if (audioEnabled && sounds.move) {
+                        sounds.move.currentTime = 0;
+                        sounds.move.play().catch(e => console.log('Audio overlap'));
+                    }
+                }
+
+                // Check if game is over
+                if (chess.game_over()) {
+                    handleLocalGameOver();
+                    return;
+                }
+
+                // Trigger AI move if enabled and it's AI's turn
+                if (aiEnabled && chess.turn() === 'b') {
+                    setTimeout(() => makeAIMove(), 500); // 500ms delay for realism
+                }
+            }
+        }
+
+        function onSnapEnd() {
+            board.position(chess.fen());
+        }
+
+        // ============ CLICK-TO-MOVE SYSTEM ============
+        function onSquareClick(square) {
+            console.log('Square clicked:', square, 'selectedSquare:', selectedSquare);
+
+            if (chess.game_over()) {
+                console.log('Game is over, ignoring click');
+                return;
+            }
+            if (aiThinking) {
+                console.log('AI is thinking, ignoring click');
+                return;
+            }
+
+            // Turn checks
+            if (isMultiplayer && !gameStarted) {
+                console.log('Multiplayer game not started yet');
+                return;
+            }
+            if (isMultiplayer && ((myColor === 'white' && chess.turn() !== 'w') || (myColor === 'black' && chess.turn() !== 'b'))) {
+                console.log('Not your turn');
+                return;
+            }
+            if (aiEnabled && chess.turn() !== 'w') {
+                console.log('AI turn, ignoring click');
+                return;
+            }
+
+            const piece = chess.get(square);
+            console.log('Piece at square:', piece);
+
+            if (!selectedSquare) {
+                // No piece selected yet - try to select one
+                if (piece && piece.color === chess.turn()) {
+                    console.log('Selecting piece at:', square);
+                    selectedSquare = square;
+                    selectedPieceMoves = chess.moves({ square: square, verbose: true });
+                    highlightSelectedSquare(square);
+                    for (let i = 0; i < selectedPieceMoves.length; i++) {
+                        highlightSquare(selectedPieceMoves[i].to, selectedPieceMoves[i].captured ? true : false);
+                    }
+                    // Toast removed as per user request
+                }
+            } else {
+                // A piece is already selected
+                if (square === selectedSquare) {
+                    // Clicked same square - deselect
+                    console.log('Deselecting piece');
+                    clearSelection();
+                    return;
+                }
+
+                if (piece && piece.color === chess.turn()) {
+                    // Clicked another own piece - switch selection
+                    console.log('Switching selection to:', square);
+                    clearSelection();
+                    selectedSquare = square;
+                    selectedPieceMoves = chess.moves({ square: square, verbose: true });
+                    highlightSelectedSquare(square);
+                    for (let i = 0; i < selectedPieceMoves.length; i++) {
+                        highlightSquare(selectedPieceMoves[i].to, selectedPieceMoves[i].captured ? true : false);
+                    }
+                    return;
+                }
+
+                // Check if clicked square is a valid move target
+                const moveExists = selectedPieceMoves.find(m => m.to === square);
+                if (moveExists) {
+                    console.log('Making move from', selectedSquare, 'to', square);
+                    const fromSquare = selectedSquare;
+
+                    // --- PROMOTION CHECK FOR CLICKS ---
+                    const pieceStr = chess.get(fromSquare);
+                    if (pieceStr && pieceStr.type === 'p') {
+                        const targetRank = square.charAt(1);
+                        if ((pieceStr.color === 'w' && targetRank === '8') || (pieceStr.color === 'b' && targetRank === '1')) {
+                            // Valid promotion! Wait for modal instead of firing executeMove instantly
+                            const testMove = chess.move({ from: fromSquare, to: square, promotion: 'q' });
+                            if (testMove) {
+                                chess.undo();
+                                console.log('👑 Pawn promotion triggered via click, showing modal');
+                                clearSelection();
+                                window.pendingPromotion = { source: fromSquare, target: square };
+                                $('#promotion-modal').addClass('active');
+                                return; // Stop executing, wait for modal choice
+                            }
+                        }
+                    }
+
+                    // Normal Execution
+                    clearSelection();
+                    executeMove(fromSquare, square, 'q');
+
+                } else {
+                    // Clicked invalid square - deselect
+                    console.log('Invalid target, deselecting');
+                    clearSelection();
+                }
+            }
+        }
+
+        function clearSelection() {
+            selectedSquare = null;
+            selectedPieceMoves = [];
+            removeHighlights();
+            removeSelectedHighlight();
+        }
+
+        function highlightSelectedSquare(square) {
+            $('#board .square-' + square).addClass('highlight-selected');
+        }
+
+        function removeSelectedHighlight() {
+            $('#board .square-55d63').removeClass('highlight-selected');
+        }
+
+        // ============ HIGHLIGHTING FUNCTIONS ============
+        function onMouseoverSquare(square, piece) {
+            // Don't show hints if game is over
+            if (chess.game_over()) return;
+
+            // Don't show hints if AI is thinking
+            if (aiThinking) return;
+
+            // In multiplayer, only show hints if it's your turn
+            if (isMultiplayer) {
+                if (!gameStarted) return;
+                if ((myColor === 'white' && chess.turn() !== 'w') ||
+                    (myColor === 'black' && chess.turn() !== 'b')) {
+                    return;
+                }
+            }
+
+            // In AI game, only show hints for white (player)
+            if (aiEnabled && chess.turn() !== 'w') return;
+
+            // Get possible moves for this square
+            const moves = chess.moves({
+                square: square,
+                verbose: true
+            });
+
+            // No moves available for this square
+            if (moves.length === 0) return;
+
+            // Highlight all possible move squares
+            for (let i = 0; i < moves.length; i++) {
+                highlightSquare(moves[i].to, moves[i].captured ? true : false);
+            }
+        }
+
+        function onMouseoutSquare() {
+            removeHighlights();
+        }
+
+        function highlightSquare(square, isCapture = false) {
+            const $square = $('#board .square-' + square);
+
+            $square.addClass('highlight-move');
+
+            // Add visual indicator for click-to-move
+            if (!$square.find('.click-move-indicator').length) {
+                const indicatorClass = isCapture ? 'click-move-indicator capture' : 'click-move-indicator';
+                $square.append('<div class="' + indicatorClass + '"></div>');
+            }
+        }
+
+        function removeHighlights() {
+            $('#board .square-55d63').removeClass('highlight-move');
+            $('.click-move-indicator').remove();
+            $('#board .highlight-premove').remove();
+        }
+
+
+
+        function highlightCheck() {
+            // Remove old check highlights
+            $('#board .square-55d63').removeClass('highlight-check');
+
+            if (chess.in_check()) {
+                const turn = chess.turn();
+                const board = chess.board();
+
+                let kingSquare = null;
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        const piece = board[r][c];
+                        if (piece && piece.type === 'k' && piece.color === turn) {
+                            const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+                            const rank = 8 - r;
+                            kingSquare = files[c] + rank;
+                            break;
+                        }
+                    }
+                    if (kingSquare) break;
+                }
+
+                if (kingSquare) {
+                    $('#board .square-' + kingSquare).addClass('highlight-check');
+                }
+
+                // Play check sound
+                if (audioEnabled && sounds.check) {
+                    sounds.check.currentTime = 0;
+                    sounds.check.play().catch(e => console.log('Audio overlap'));
+                }
+            }
+        }
+
+        // ============ UI FUNCTIONS ============
+        function setupBoardUI(color) {
+            board.orientation(color);
+
+            // Fix Timer Positions based on My Color
+            // Player's own timer should always be at the BOTTOM (closer to them)
+            // Opponent's timer should always be at the TOP
+            const topContainer = $('#timer-top-container');
+            const bottomContainer = $('#timer-bottom-container');
+            const whiteTimer = $('#timer-white').detach();
+            const blackTimer = $('#timer-black').detach();
+
+            if (color === 'black') {
+                // I'm black: Top = White (opponent), Bottom = Black (me)
+                topContainer.empty().append(whiteTimer);
+                bottomContainer.empty().append(blackTimer);
+            } else {
+                // I'm white: Top = Black (opponent), Bottom = White (me)
+                topContainer.empty().append(blackTimer);
+                bottomContainer.empty().append(whiteTimer);
+            }
+
+            updateTimerDisplay();
+        }
+
+        function updateUI() {
+            highlightCheck(); // Check for check and highlight king
+            updateMoveList();
+            updateCapturedPieces();
+            updateTimerDisplay();
+            updateStatus();
+        }
+
+        function updateMoveList() {
+            const history = chess.history({ verbose: true });
+            let html = '';
+            let mobileHtml = ''; // For mobile bar
+
+            // Show only last 10 moves (20 half-moves)
+            const startIndex = Math.max(0, history.length - 20);
+            const adjustedStartIndex = startIndex % 2 === 0 ? startIndex : startIndex + 1;
+
+            for (let i = adjustedStartIndex; i < history.length; i += 2) {
+                const moveNum = Math.floor(i / 2) + 1;
+                const white = history[i].san;
+                const black = history[i + 1] ? history[i + 1].san : '';
+
+                html += `<div class="move-row">
+                    <span class="move-number">${moveNum}.</span>
+                    <span class="move-white">${white}</span>
+                    <span class="move-black">${black}</span>
+                </div>`;
+            }
+
+            // Build Mobile String (Horizontal Scroll)
+            for (let i = 0; i < history.length; i += 2) {
+                const moveNum = Math.floor(i / 2) + 1;
+                const white = history[i].san;
+                const black = history[i + 1] ? history[i + 1].san : '';
+
+                mobileHtml += `<span class="move-num">${moveNum}.</span><span class="move-w">${white}</span>`;
+                if (black) mobileHtml += ` <span class="move-b">${black}</span>`;
+                mobileHtml += `<span style="margin-left:8px; opacity:0.3">|</span> `;
+            }
+
+            $('#move-list').html(html || '<div style="opacity: 0.5; text-align: center;">No moves yet</div>');
+
+            // Update Mobile Bar
+            $('#mobile-moves-bar').html(mobileHtml || '<span style="opacity: 0.5; font-style: italic;">Game started...</span>');
+
+            // Auto scroll to bottom
+            const moveList = document.getElementById('move-list');
+            if (moveList) {
+                moveList.scrollTop = moveList.scrollHeight;
+            }
+
+            // Auto scroll mobile bar
+            const mobileMoves = document.getElementById('mobile-moves-bar');
+            if (mobileMoves) mobileMoves.scrollLeft = mobileMoves.scrollWidth;
+        }
+
+        function updateCapturedPieces() {
+            const pieceValues = { p: 1, n: 3, b: 3, r: 5, q: 9 };
+
+            let whiteHtml = '';
+            let whiteMaterial = 0;
+            captured.w.forEach(p => {
+                whiteHtml += `<span class="captured-piece">♟</span>`;
+                whiteMaterial += pieceValues[p] || 0;
+            });
+
+            let blackHtml = '';
+            let blackMaterial = 0;
+            captured.b.forEach(p => {
+                blackHtml += `<span class="captured-piece">♟</span>`;
+                blackMaterial += pieceValues[p] || 0;
+            });
+
+            const diff = whiteMaterial - blackMaterial;
+
+            $('#captured-white').html(whiteHtml || '<span style="opacity: 0.3;">None</span>');
+            $('#captured-black').html(blackHtml || '<span style="opacity: 0.3;">None</span>');
+
+            if (diff > 0) {
+                $('#material-white').text('+' + diff).show();
+                $('#material-black').hide();
+            } else if (diff < 0) {
+                $('#material-black').text('+' + Math.abs(diff)).show();
+                $('#material-white').hide();
+            } else {
+                $('#material-white, #material-black').hide();
+            }
+        }
+
+        function updateTimerDisplay() {
+            const formatTime = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            };
+
+            const whiteTime = formatTime(timerWhite);
+            const blackTime = formatTime(timerBlack);
+
+            $('#timer-white').text(whiteTime);
+            $('#timer-black').text(blackTime);
+
+            // Update document title when time is low
+            if (gameStarted && !aiEnabled) {
+                const isMyTurn = (myColor === 'white' && chess.turn() === 'w') ||
+                    (myColor === 'black' && chess.turn() === 'b');
+                const myTime = myColor === 'white' ? timerWhite : timerBlack;
+
+                if (isMyTurn && myTime < 30 && myTime > 0) {
+                    document.title = `⏰ ${myTime}s - Coffee Chess`;
+                } else {
+                    document.title = 'Coffee Chess | Secure Blockchain Gaming';
+                }
+            }
+
+            // Highlight active timer
+            const turn = chess.turn();
+            if (turn === 'w') {
+                $('#timer-white').addClass('active-timer');
+                $('#timer-black').removeClass('active-timer');
+            } else {
+                $('#timer-black').addClass('active-timer');
+                $('#timer-white').removeClass('active-timer');
+            }
+
+            // Warning for low time with visual feedback
+            if (timerWhite < 30) {
+                $('#timer-white').addClass('timer-warning');
+            } else {
+                $('#timer-white').removeClass('timer-warning');
+            }
+
+            if (timerBlack < 30) {
+                $('#timer-black').addClass('timer-warning');
+            } else {
+                $('#timer-black').removeClass('timer-warning');
+            }
+        }
+
+
+
+        // --- LAST MOVE HIGHLIGHTING ---
+        function highlightLastMove(source, target) {
+            // Remove previous last move highlights
+            $('#board .highlight-last-move').remove();
+
+            // Add new highlights
+            if (source && target) {
+                $(`.square-${source}`).append('<div class="highlight-last-move"></div>');
+                $(`.square-${target}`).append('<div class="highlight-last-move"></div>');
+            }
+        }
+
+        function updateStatus() {
+            let status = '';
+
+            if (chess.in_checkmate()) {
+                status = 'Checkmate!';
+            } else if (chess.in_draw()) {
+                status = 'Draw';
+            } else if (chess.in_check()) {
+                status = 'Check!';
+            } else {
+                status = chess.turn() === 'w' ? "White's turn" : "Black's turn";
+            }
+
+            $('#status-text').text(status);
+
+            // --- Mobile Sync ---
+            $('#mobile-status-text').text(status);
+
+            // Update mobile visual indicator
+            const isWhiteTurn = chess.turn() === 'w';
+            const colorName = isWhiteTurn ? "White's Turn" : "Black's Turn";
+            const colorHex = isWhiteTurn ? "#FFFFFF" : "#444444";
+
+            $('#mobile-turn-indicator span').text(colorName);
+            $('#mobile-turn-indicator div').css({
+                'background': colorHex,
+                'border': isWhiteTurn ? 'none' : '1px solid #777'
+            });
+        }
+
+
+
+        function showWinnerModal(winner, reason, winnerAddress) {
+            let title, message, icon;
+
+            // Store winner color globally so claimReward can use it
+            window._lastGameWinnerColor = winner; // 'white' | 'black' | 'draw'
+
+            if (winner === 'draw') {
+                title = 'Game Drawn';
+                message = `The game ended in a ${reason}`;
+                icon = '🤝';
+                $('#winner-claim-btn').show().text('🤝 Claim Stake Back');
+            } else {
+                const isWinner = (winner.toLowerCase() === myColor);
+                title = isWinner ? 'You Won! 🎉' : 'You Lost';
+                message = `${winner} wins by ${reason}`;
+                icon = isWinner ? '🏆' : '😔';
+
+                if (isWinner && winnerAddress && winnerAddress.toLowerCase() === userAddress.toLowerCase()) {
+                    $('#winner-claim-btn').show().text('🏆 Claim Reward');
+                } else {
+                    $('#winner-claim-btn').hide();
+                }
+            }
+
+            $('#winner-title').html(`${icon} ${title}`);
+            $('#winner-message').text(message);
+
+            // Game summary + 30s notice
+            const moveCount = chess.history().length;
+            const isMyWin = winner !== 'draw' && winner.toLowerCase() === myColor;
+            const summaryHtml = `
+                <div style="margin: 15px 0; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 5px;">Game Summary</div>
+                    <div style="font-size: 1rem;">
+                        <span style="color: var(--primary-gold);">${moveCount}</span> moves played
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">
+                        ${reason === 'checkmate' ? '♚ Checkmate!' :
+                    reason === 'resignation' ? '🏳️ Resignation' :
+                        reason === 'timeout' ? '⏰ Time expired' :
+                            reason === 'disconnect' ? '🔌 Opponent disconnected' : reason}
+                    </div>
+                    ${isMyWin ? `<div style="margin-top: 10px; font-size: 0.8rem; color: #f0c040; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">⏱️ Minimum claim time: <strong>30 seconds</strong> after game start. The button will complete all steps automatically.</div>` : ''}
+                </div>
+            `;
+            // Remove any previously appended game summary
+            $('#winner-message').siblings('div').remove();
+            $('#winner-message').after(summaryHtml);
+
+            openModal('winner-modal');
+
+            $('#resign-btn').prop('disabled', true);
+            $('#offer-draw-btn').prop('disabled', true);
+
+            // Play victory/defeat sound
+            if (winner !== 'draw') {
+                const isWinner = (winner.toLowerCase() === myColor);
+                playGameEndSound(isWinner);
+            }
+        }
+
+        // ============ CLEANUP ============
+        function cleanupGame() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            gameStarted = false;
+            aiEnabled = false;
+            aiThinking = false;
+            roomId = null;
+            currentGameId = null;
+            isMultiplayer = false;
+            playerNumber = null;
+            myColor = 'white';
+
+            // Reset board
+            if (chess) chess.reset();
+            if (board) board.start();
+
+            $('#status-text').text('Ready');
+            $('#game-info-text').text('No active game');
+            $('#mobile-status-text').text('Ready');
+            $('#mobile-game-id').html(`Game: <span class="text-gold">--</span>`);
+
+            updateUI();
+        }
+
+        function playGameEndSound(isWin) {
+            if (audioEnabled && sounds.gameEnd) {
+                sounds.gameEnd.currentTime = 0;
+                sounds.gameEnd.play().catch(e => console.log('Audio overlap'));
+            }
+        }
+
+        // ============ UTILITY FUNCTIONS ============
+        // Toast queue to prevent overlapping
+        const toastQueue = [];
+        let isShowingToast = false;
+
+        function showToast(message, type = 'info', duration = 3000) {
+            toastQueue.push({ message, type, duration });
+            if (!isShowingToast) {
+                processToastQueue();
+            }
+        }
+
+        function processToastQueue() {
+            if (toastQueue.length === 0) {
+                isShowingToast = false;
+                return;
+            }
+
+            isShowingToast = true;
+            const { message, type, duration } = toastQueue.shift();
+
+            // Create unique ID for this toast
+            const toastId = 'toast-' + Date.now();
+
+            const toast = $(`
+                <div id="${toastId}" class="toast toast-${type}">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span class="toast-icon">${getToastIcon(type)}</span>
+                        <span>${message}</span>
+                    </div>
+                </div>
+            `);
+
+            $('body').append(toast);
+
+            // Animate in
+            requestAnimationFrame(() => {
+                toast.addClass('show');
+            });
+
+            // Remove after duration
+            setTimeout(() => {
+                toast.removeClass('show');
+                setTimeout(() => {
+                    toast.remove();
+                    processToastQueue();
+                }, 300);
+            }, duration);
+        }
+
+        function getToastIcon(type) {
+            const icons = {
+                success: '✓',
+                error: '✕',
+                warning: '⚠',
+                info: 'ℹ'
+            };
+            return icons[type] || icons.info;
+        }
+
+        // Loading overlay with progress steps
+        let loadingSteps = [];
+        let currentStep = 0;
+
+        function showLoadingOverlay(message, steps = []) {
+            loadingSteps = steps;
+            currentStep = 0;
+
+            const progressHtml = steps.length > 0 ? `
+                <div style="margin-top: 20px; width: 300px;">
+                    <div style="background: rgba(255,255,255,0.1); height: 4px; border-radius: 2px; overflow: hidden;">
+                        <div id="loading-progress" style="background: var(--primary-gold); height: 100%; width: 0%; transition: width 0.3s;"></div>
+                    </div>
+                    <div id="loading-step-text" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">
+                        Step 1 of ${steps.length}: ${steps[0] || 'Loading...'}
+                    </div>
+                </div>
+            ` : '';
+
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) {
+                overlay.innerHTML = `
+                    <div class="loader"></div>
+                    <div id="loading-message" style="margin-top: 20px;">${message}</div>
+                    ${progressHtml}
+                `;
+                overlay.classList.remove('hidden');
+                overlay.style.display = 'flex';
+            }
+        }
+
+        function hideLoadingOverlay() {
+            // Force hide using both CSS class and inline style for maximum compatibility
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) {
+                overlay.classList.add('hidden');
+                overlay.style.display = 'none';
+            }
+            loadingSteps = [];
+            currentStep = 0;
+
+            // Also ensure any pending timeouts are cleared
+            if (window.loadingTimeout) {
+                clearTimeout(window.loadingTimeout);
+                window.loadingTimeout = null;
+            }
+        }
+
+
+        function updateLoadingMessage(message) {
+            $('#loading-message').text(message);
+        }
+
+        function updateLoadingProgress(stepMessage) {
+            currentStep++;
+            if (loadingSteps.length > 0) {
+                const progress = (currentStep / loadingSteps.length) * 100;
+                $('#loading-progress').css('width', progress + '%');
+                $('#loading-step-text').text(`Step ${currentStep} of ${loadingSteps.length}: ${stepMessage}`);
+            }
+        }
+
+        // Sound effects using Web Audio API
+        let audioContext = null;
+
+
+
+        function playMoveSound() {
+            try {
+                initAudio();
+                if (!audioContext) return;
+
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                // Wood piece sound simulation
+                oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.05);
+                oscillator.type = 'triangle';
+
+                gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.08);
+
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.08);
+            } catch (e) {
+                console.log('Audio play failed:', e);
+            }
+        }
+
+        const soundCapture = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_common/capture.mp3');
+
+        function playCaptureSound() {
+            soundCapture.play().catch(e => console.log('Audio error:', e));
+        }
+
+        const soundCheck = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_common/move-check.mp3');
+
+        function playCheckSound() {
+            soundCheck.play().catch(e => console.log('Audio error:', e));
+        }
+
+        function newLocalGame(difficulty = 'medium') {
+            if (isMultiplayer && gameStarted) {
+                if (!confirm('Leave current game and start local game?')) return;
+            }
+
+            chess.reset();
+            board.start();
+            captured = { w: [], b: [] };
+
+            const timeLimit = parseInt($('#ai-time-input').val()) || 5;
+            timerWhite = timeLimit * 60;
+            timerBlack = timeLimit * 60;
+
+            clearInterval(timerInterval);
+            isMultiplayer = false;
+            gameStarted = true; // Enable game
+
+            // Enable AI
+            aiEnabled = true;
+            aiDifficulty = difficulty;
+            aiThinking = false;
+
+            setupBoardUI('white');
+            updateUI();
+            startLocalTimer();
+
+            // Disable chat
+            $('#chat-input').prop('disabled', true).val('');
+            $('#chat-send-btn').prop('disabled', true);
+            $('#chat-messages').empty();
+
+            const difficultyName = difficulty === 'easy' ? 'Easy' :
+                difficulty === 'medium' ? 'Medium' : 'Hard';
+
+            showToast(`Local game started vs AI (${difficultyName})`, 'success');
+            $('#game-info-text').html(`vs AI <span class="text-gold">${difficultyName}</span>`);
+            $('#resign-btn').prop('disabled', false);
+            $('#claim-btn').addClass('hidden');
+        }
+
+        // ============ AI OPPONENT ============
+        function makeAIMove() {
+            if (aiThinking || !aiEnabled || chess.game_over()) return;
+
+            aiThinking = true;
+            $('#status-text').text('AI is thinking...');
+
+            const moves = chess.moves({ verbose: true });
+            if (moves.length === 0) {
+                aiThinking = false;
+                handleLocalGameOver();
+                return;
+            }
+
+            let selectedMove;
+
+            if (aiDifficulty === 'easy') {
+                // Easy: Random move
+                selectedMove = moves[Math.floor(Math.random() * moves.length)];
+
+            } else if (aiDifficulty === 'medium') {
+                // Medium: Prefer captures, checks, and center control
+                const capturesMoves = moves.filter(m => m.captured);
+                const checkMoves = moves.filter(m => {
+                    chess.move(m);
+                    const inCheck = chess.inCheck();
+                    chess.undo();
+                    return inCheck;
+                });
+
+                if (capturesMoves.length > 0 && Math.random() > 0.3) {
+                    selectedMove = capturesMoves[Math.floor(Math.random() * capturesMoves.length)];
+                } else if (checkMoves.length > 0 && Math.random() > 0.5) {
+                    selectedMove = checkMoves[Math.floor(Math.random() * checkMoves.length)];
+                } else {
+                    selectedMove = moves[Math.floor(Math.random() * moves.length)];
+                }
+
+            } else if (aiDifficulty === 'hard') {
+                // Hard: Minimax with basic evaluation
+                selectedMove = getBestMove(2); // depth 2
+            }
+
+            // Make the move
+            const move = chess.move(selectedMove);
+            board.position(chess.fen());
+
+            const isCapture = move.captured;
+            if (isCapture) {
+                captured.b.push(move.captured);
+            }
+
+            updateUI();
+
+            // Play appropriate sound
+            if (isCapture) {
+                playCaptureSound();
+            } else {
+                playMoveSound();
+            }
+
+            aiThinking = false;
+
+            // Check if game is over
+            if (chess.game_over()) {
+                handleLocalGameOver();
+            }
+        }
+
+        // Simple minimax for hard AI
+        function getBestMove(depth) {
+            const moves = chess.moves({ verbose: true });
+            let bestMove = moves[0];
+            let bestValue = -Infinity;
+
+            moves.forEach(move => {
+                chess.move(move);
+                const value = minimax(depth - 1, -Infinity, Infinity, false);
+                chess.undo();
+
+                if (value > bestValue) {
+                    bestValue = value;
+                    bestMove = move;
+                }
+            });
+
+            return bestMove;
+        }
+
+        function minimax(depth, alpha, beta, isMaximizing) {
+            if (depth === 0 || chess.game_over()) {
+                return evaluateBoard();
+            }
+
+            const moves = chess.moves({ verbose: true });
+
+            if (isMaximizing) {
+                let maxEval = -Infinity;
+                for (let move of moves) {
+                    chess.move(move);
+                    const evaluation = minimax(depth - 1, alpha, beta, false);
+                    chess.undo();
+                    maxEval = Math.max(maxEval, evaluation);
+                    alpha = Math.max(alpha, evaluation);
+                    if (beta <= alpha) break;
+                }
+                return maxEval;
+            } else {
+                let minEval = Infinity;
+                for (let move of moves) {
+                    chess.move(move);
+                    const evaluation = minimax(depth - 1, alpha, beta, true);
+                    chess.undo();
+                    minEval = Math.min(minEval, evaluation);
+                    beta = Math.min(beta, evaluation);
+                    if (beta <= alpha) break;
+                }
+                return minEval;
+            }
+        }
+
+        function evaluateBoard() {
+            const pieceValues = {
+                p: 1, n: 3, b: 3, r: 5, q: 9, k: 0
+            };
+
+            let score = 0;
+            const board = chess.board();
+
+            for (let i = 0; i < 8; i++) {
+                for (let j = 0; j < 8; j++) {
+                    const piece = board[i][j];
+                    if (piece) {
+                        const value = pieceValues[piece.type];
+                        if (piece.color === 'b') {
+                            score += value;
+                        } else {
+                            score -= value;
+                        }
+                    }
+                }
+            }
+
+            // Add checkmate/stalemate evaluation
+            if (chess.in_checkmate()) {
+                return chess.turn() === 'b' ? -1000 : 1000;
+            }
+            if (chess.in_draw()) {
+                return 0;
+            }
+
+            return score;
+        }
+
+        function handleLocalGameOver() {
+            let winner, reason;
+            let iAmWinner = false;
+
+            if (chess.in_checkmate()) {
+                // The player whose turn it is has been checkmated (they lose)
+                const loserColor = chess.turn(); // 'w' or 'b'
+                if (isMultiplayer) {
+                    winner = loserColor === 'w' ? 'Black' : 'White';
+                    iAmWinner = (myColor === 'white' && loserColor === 'b') || (myColor === 'black' && loserColor === 'w');
+                    iAmWinner = !((myColor === 'white' && loserColor === 'w') || (myColor === 'black' && loserColor === 'b'));
+                } else {
+                    winner = loserColor === 'w' ? 'Black (AI)' : 'White (You)';
+                    iAmWinner = loserColor === 'b';
+                }
+                reason = 'checkmate';
+            } else if (chess.in_draw()) {
+                winner = 'Draw';
+                iAmWinner = false;
+                reason = chess.in_stalemate() ? 'stalemate' :
+                    chess.in_threefold_repetition() ? 'repetition' :
+                        chess.insufficient_material() ? 'insufficient material' : 'draw';
+            }
+
+            aiEnabled = false;
+            gameStarted = false;
+            if (timerInterval) clearInterval(timerInterval);
+
+            showToast(`Game Over: ${winner} wins by ${reason}`, 'info');
+            $('#status-text').text(`Game Over - ${winner} wins`);
+            $('#resign-btn').prop('disabled', true);
+
+            // For multiplayer, show claim button for winner
+            if (isMultiplayer && iAmWinner && currentGameId) {
+                console.log('🏆 You won! Showing claim button...');
+                showWinnerModal(winner.toLowerCase(), reason, userAddress);
+            } else if (isMultiplayer && !iAmWinner) {
+                console.log('😔 You lost. Opponent can claim.');
+                showToast('You lost. Better luck next time!', 'info');
+            }
+        }
+
+        // ============ CHAT FUNCTIONS ============
+        function sendChatMessage() {
+            const input = $('#chat-input');
+            const message = input.val().trim();
+
+            if (!message || !isMultiplayer || !gameStarted) return;
+
+            socket.emit('chatMessage', { message });
+            input.val('');
+        }
+
+        function displayChatMessage(msgData) {
+            const isOwn = msgData.playerNum === playerNumber;
+            const messageClass = isOwn ? 'own' : 'opponent';
+
+            const time = new Date(msgData.timestamp).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            const messageHtml = `
+                <div class="chat-message ${messageClass}">
+                    <div class="chat-sender">${isOwn ? 'You' : msgData.senderShort}</div>
+                    <div class="chat-text">${escapeHtml(msgData.message)}</div>
+                    <div class="chat-time">${time}</div>
+                </div>
+            `;
+
+            $('#chat-messages').append(messageHtml);
+
+            // Auto scroll to bottom
+            const chatContainer = document.getElementById('chat-messages');
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Keyboard shortcuts
+        $(document).keydown(function (e) {
+            // ESC to close modals and loading overlay
+            if (e.key === 'Escape') {
+                hideLoadingOverlay();
+                $('.modal-overlay.active').removeClass('active');
+            }
+
+            // Tab switching
+            if (e.key === 'Tab' && e.ctrlKey) {
+                e.preventDefault();
+                const currentTab = $('#tab-moves').hasClass('active-tab') ? 'moves' : 'chat';
+                switchTab(currentTab === 'moves' ? 'chat' : 'moves');
+            }
+
+            // Flip board with 'F'
+            if (e.key === 'f' || e.key === 'F') {
+                if (!$('input:focus, textarea:focus').length) {
+                    flipBoard();
+                }
+            }
+
+            // Resign with 'R' (with confirmation)
+            if ((e.key === 'r' || e.key === 'R') && gameStarted && !$('#resign-btn').prop('disabled')) {
+                if (!$('input:focus, textarea:focus').length) {
+                    resign();
+                }
+            }
+
+            // Focus chat with 'C'
+            if ((e.key === 'c' || e.key === 'C') && isMultiplayer && gameStarted) {
+                if (!$('input:focus, textarea:focus').length) {
+                    e.preventDefault();
+                    switchTab('chat');
+                    $('#chat-input').focus();
+                }
+            }
+        });
+
+        function switchTab(tab) {
+            if (tab === 'moves') {
+                $('#moves-tab').show().removeClass('hidden');
+                $('#chat-tab').hide().addClass('hidden');
+                $('#tab-moves').addClass('active-tab');
+                $('#tab-chat').removeClass('active-tab');
+            } else if (tab === 'chat') {
+                $('#chat-tab').show().removeClass('hidden');
+                $('#moves-tab').hide().addClass('hidden');
+                $('#tab-chat').addClass('active-tab');
+                $('#tab-moves').removeClass('active-tab');
+                // Clear notification badge
+                $('#chat-badge').addClass('hidden');
+                // Focus input
+                $('#chat-input').focus();
+            }
+        }
+
+        function playNotificationSound() {
+            if (audioEnabled && sounds.notify) {
+                sounds.notify.currentTime = 0;
+                sounds.notify.play().catch(e => console.log('Audio err'));
+            }
+        }
+
+        // Enter key to send message
+        $(document).ready(function () {
+            $('#chat-input').on('keypress', function (e) {
+                if (e.which === 13) {
+                    sendChatMessage();
+                }
+            });
+        });
+
+        // Time Selection Logic
+        function selectTime(btn, minutes) {
+            $('.time-btn').removeClass('active').css({
+                'border-color': 'rgba(255, 255, 255, 0.2)',
+                'background': 'rgba(255, 255, 255, 0.1)'
+            });
+            $(btn).addClass('active').css({
+                'border-color': 'var(--primary-gold)',
+                'background': 'rgba(212, 175, 55, 0.1)'
+            });
+            $('#time-input').val(minutes);
+        }
+
+        function selectAiTime(btn, minutes) {
+            $('.ai-time-btn').removeClass('active').css({
+                'border-color': 'rgba(255, 255, 255, 0.2)',
+                'background': 'rgba(255, 255, 255, 0.1)'
+            });
+            $(btn).addClass('active').css({
+                'border-color': 'var(--primary-gold)',
+                'background': 'rgba(212, 175, 55, 0.1)'
+            });
+            $('#ai-time-input').val(minutes);
+        }
+
+        // ============ OTHER FUNCTIONS ============
+        function flipBoard() {
+            board.flip();
+            // Swap timer positions visually
+            const whiteTimer = $('#timer-white').parent();
+            const blackTimer = $('#timer-black').parent();
+
+            if (board.orientation() === 'white') {
+                whiteTimer.insertAfter('#board');
+                blackTimer.insertBefore('#board');
+            } else {
+                whiteTimer.insertBefore('#board');
+                blackTimer.insertAfter('#board');
+            }
+
+            updateTimerDisplay();
+            showToast('Board flipped', 'info', 1500);
+        }
+
+        function resign() {
+            if (!confirm('Are you sure you want to resign?')) return;
+
+            if (isMultiplayer && gameStarted) {
+                socket.emit('resign');
+                showToast('You resigned', 'info');
+            } else if (aiEnabled) {
+                // Local AI game
+                $('#status-text').text('You resigned - AI wins');
+                aiEnabled = false;
+                gameStarted = false;
+                if (timerInterval) clearInterval(timerInterval);
+            }
+
+            $('#resign-btn').prop('disabled', true);
+            $('#offer-draw-btn').prop('disabled', true);
+        }
+
+        // --- DRAW OFFER LOGIC ---
+        function offerDraw() {
+            if (!isMultiplayer || !gameStarted) return;
+            // Prevent spam block
+            $('#offer-draw-btn').prop('disabled', true).text('Draw offered...');
+            socket.emit('offerDraw');
+            showToast('Draw offer sent to opponent.', 'info');
+        }
+
+        function openDrawOfferModal() {
+            openModal('draw-offer-modal');
+        }
+
+        function acceptDrawOffer() {
+            closeModal('draw-offer-modal');
+            socket.emit('acceptDraw');
+        }
+
+        function declineDrawOffer() {
+            closeModal('draw-offer-modal');
+            socket.emit('declineDraw');
+        }
+
+
+        // Timer Logic for Local Game - Decrement active player's timer every second
+        function startLocalTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+
+            timerInterval = setInterval(() => {
+                if (!gameStarted || isMultiplayer) return;
+
+                // Decrement timer for the player whose turn it currently is
+                if (chess.turn() === 'w') {
+                    timerWhite--;
+                } else {
+                    timerBlack--;
+                }
+
+                updateTimerDisplay();
+
+                if (timerWhite <= 0 || timerBlack <= 0) {
+                    clearInterval(timerInterval);
+                    const winner = timerWhite <= 0 ? 'Black (AI)' : 'White (You)';
+                    gameStarted = false;
+                    aiEnabled = false;
+                    showToast(`Game Over: ${winner} wins on time!`, 'info');
+                    $('#status-text').text(`Game Over - ${winner} wins on time`);
+                    $('#resign-btn').prop('disabled', true);
+                }
+            }, 1000);
+        }
+
+        function openModal(id) {
+            $('#' + id).addClass('active');
+        }
+
+        function closeModal(id) {
+            $('#' + id).removeClass('active');
+        }
+
+        window.onclick = function (e) {
+            if ($(e.target).hasClass('modal-overlay')) {
+                closeModal(e.target.id);
+            }
+        }
+
+        // Initialize chat input handlers
+        $(document).ready(function () {
+            $('#chat-input').on('keydown', function (e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendChatMessage();
+                }
+            });
+
+            // Quick emoji support
+            $('#chat-input').on('input', function () {
+                const text = $(this).val();
+                // Auto-convert common emoticons
+                const converted = text
+                    .replace(/:\)/g, '😊')
+                    .replace(/:\(/g, '😞')
+                    .replace(/:D/g, '😄')
+                    .replace(/:P/g, '😛')
+                    .replace(/<3/g, '❤️')
+                    .replace(/:fire:/g, '🔥')
+                    .replace(/:check:/g, '✓')
+                    .replace(/:cross:/g, '✕');
+                if (converted !== text) {
+                    $(this).val(converted);
+                }
+            });
+        });
+
+
+        // ============ EXPOSE FUNCTIONS TO WINDOW (MODULE FIX) ============
+        window.connectWallet = connectWallet;
+        window.startPvpGameFlow = startPvpGameFlow;
+        window.joinPvpGameFlow = joinPvpGameFlow;
+        window.claimReward = claimReward;
+        window.resign = resign;
+        window.flipBoard = () => board.flip(); // Simple wrapper
+        window.openModal = (id) => {
+            $(`#${id}`).addClass('active');
+        };
+        window.closeModal = (id) => {
+            $(`#${id}`).removeClass('active');
+        };
+        // Expose draw functions
+        window.offerDraw = offerDraw;
+        window.acceptDrawOffer = acceptDrawOffer;
+        window.declineDrawOffer = declineDrawOffer;
+
+        window.switchTab = (tab) => {
+            $('.tab-content').addClass('hidden');
+            $('.tab-btn').removeClass('active-tab');
+            $('.tab-btn').css('border-bottom-color', 'transparent');
+
+            $(`#${tab}-tab`).removeClass('hidden');
+            $(`#tab-${tab}`).addClass('active-tab');
+            $(`#tab-${tab}`).css('border-bottom-color', 'var(--primary-gold)');
+
+            if (tab === 'chat') {
+                $('#chat-badge').addClass('hidden');
+            }
+        };
+        // Reuse existing functions if they are defined in scope
+        window.sendChatMessage = sendChatMessage;
+        window.selectTime = (btn, time) => {
+            $('.time-btn').removeClass('active').css({ background: '', borderColor: '' });
+            $(btn).addClass('active').css({ background: 'rgba(212, 175, 55, 0.1)', borderColor: 'var(--primary-gold)' });
+            $('#time-input').val(time);
+        };
+        window.selectAiTime = (btn, time) => {
+            $('.ai-time-btn').removeClass('active').css({ background: '', borderColor: '' });
+            $(btn).addClass('active').css({ background: 'rgba(212, 175, 55, 0.1)', borderColor: 'var(--primary-gold)' });
+            $('#ai-time-input').val(time);
+        };
+        window.newLocalGame = newLocalGame;
+        window.handleLocalGameOver = handleLocalGameOver;
+        window.makeAIMove = makeAIMove;
+
+    </script>
+
+</body>
+
+</html>
