@@ -17,8 +17,6 @@
         "socket.io": "^4.8.1"
     },
     "devDependencies": {
-        "@nomicfoundation/hardhat-toolbox": "^6.1.0",
-        "hardhat": "^3.1.9",
         "nodemon": "^3.0.1"
     }
 }
